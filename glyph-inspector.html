@@ -148,7 +148,74 @@ function displayGlyphData(glyphIndex) {
     } else if (glyph.path) {
         html += 'path:<br><pre>  ' + glyph.path.commands.map(pathCommandToString).join('\n  ') + '\n</pre>';
     }
+
+    const substitutions = {};
+    let substitutionsHtml = '';
+    font.tables?.gsub?.lookups?.forEach( ( lookupData, lookupIndex ) => {
+        const substData = lookupData?.subtables.filter( s => s?.coverage?.glyphs?.includes( glyphIndex ) );
+        if ( ! substData || ! substData.length ) return;
+
+        if ( lookupData.lookupType === 1 ) {
+            substitutions[lookupIndex] = substData.map( st => {
+                if ( st.substFormat === 2 ) {
+                    return st.substitute;
+                } else {
+                    return glyphIndex + st.deltaGlyphId;
+                }
+            } );
+        } else {
+            console.warn( 'Unsupported lookup type', lookupData );
+        }
+    } );
+
+    const substIndexes = Object.keys( substitutions ).map( parseInt );
+    let substHeadlineOutput = false;
+    const canvasGlyphIds = [];
+    if ( substIndexes.length ) {
+        font.tables?.gsub?.features.forEach( f => {
+            // if ( ! /^(salt|sups|(ss|cv)\d{2})$/.test( f.tag ) ) return;
+
+            const lookupListIndexes = f.feature.lookupListIndexes;
+            const matchedIndexes = substIndexes.filter(x => lookupListIndexes.includes(x));
+            if ( matchedIndexes.length ) {
+                const label = ( f?.feature?.uiName || f?.feature?.featUiLabelName )?.en;
+                substitutionsHtml += `<div><strong>${f.tag}</strong>${label ? `<em> &ndash; ${escapeHtml(label)}</em>` : '' }:<br>`;
+                (new Set( matchedIndexes ) ).forEach( m => {
+                    substitutions[m].forEach( s => {
+                        if ( ! Array.isArray( s ) ) {
+                            s = [ s ];
+                        }
+                        ( new Set( s ) ).forEach( s2 => {
+                            const canvasId = `subst-${f.tag}-g${s2}`;
+                            substitutionsHtml+= `<canvas width="${cellWidth}" height="${cellHeight}" class="item" id="${canvasId}"></canvas>`;
+                            canvasGlyphIds.push(canvasId);
+                        } )
+                    } );
+                } );
+                substitutionsHtml += '</div>';
+            }
+        } )
+    }
+
+    if ( substitutionsHtml ) {
+        html += 'substitutions:<section id="glyph-substitutions">';
+        html += substitutionsHtml;
+        html += '</section>';
+    }
+
     container.innerHTML = html;
+    canvasGlyphIds.forEach( canvasId => {
+        const substCanvas = document.getElementById( canvasId );
+        // enableHighDPICanvas( substCanvas );
+        const glyphId = canvasId.match(/-g(\d*)$/)[1];
+        renderGlyphItem( substCanvas, glyphId );
+        substCanvas.addEventListener( 'click', () => {
+            if (glyphId < font.numGlyphs) {
+                displayGlyph(glyphId);
+                displayGlyphData(glyphId);
+            }
+        }, false);
+    } );
 }
 
 var arrowLength = 10,
@@ -387,7 +454,7 @@ function onReadFile(e) {
 function cellSelect(event) {
     if (!font) return;
     var firstGlyphIndex = pageSelected*cellCount,
-        cellIndex = +event.target.id.substr(1),
+        cellIndex = +event.target.id.match(/g(\d*)$/)[1],
         glyphIndex = firstGlyphIndex + cellIndex;
     if (glyphIndex < font.numGlyphs) {
         displayGlyph(glyphIndex);

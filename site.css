@@ -282,6 +282,10 @@ canvas.item:hover {
     overflow: auto;
 }
 
+#glyph-substitutions div {
+    clear: both;
+}
+
 #glyph-data pre { font-size: 11px; }
 pre:not(.contour) { margin: 0; }
 pre.contour { margin: 0 0 1em 2em; border-bottom: solid 1px #a0a0a0; }
