@@ -25,3 +25,43 @@ function enableHighDPICanvas(canvas) {
     canvas.style.height = oldHeight + 'px';
     canvas.getContext('2d').scale(pixelRatio, pixelRatio);
 }
+
+function checkFileType( file ) {
+    return ( ! file.type )
+                || ( file.type.substring(0, 16) === 'application/font' )
+                || ( file.type.substring(0, 18) === 'application/x-font' )
+                || ( file.type.substring(0, 5) === 'font/' )
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    document.body.addEventListener( 'dragover', function(ev) {
+        ev.preventDefault();
+        const draggedFont = Array.from(ev.dataTransfer?.items || []).find( file => {
+            return checkFileType( file );
+            ;
+        } );
+        console.log(draggedFont);
+        if ( ! draggedFont ) {
+            ev.dataTransfer.dropEffect = 'none';
+        }
+    });
+    document.body.addEventListener( 'drop', function(ev) {
+        ev.stopPropagation();
+        ev.preventDefault();
+        const droppedFont = Array.from(ev.dataTransfer.files).find( file => {
+            return checkFileType( file );
+            ;
+        } );
+        if ( droppedFont ) {
+            try {
+                document.getElementById('file').files = ev.dataTransfer.files;
+            } catch( e ) {}
+
+            onReadFile && onReadFile({
+                target: {
+                    files: [ droppedFont ]
+                }
+            })
+        }
+    });
+})
