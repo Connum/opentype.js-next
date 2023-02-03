@@ -7,6 +7,7 @@
     <!-- Note that the internal development server rewrites the JavaScript URL below to build/opentype.js -->
     <script type="text/javascript" src="dist/opentype.js"></script>
     <link rel="stylesheet" href="site.css">
+    <script src="site.js"></script>
 </head>
 <body>
 <div class="header">
@@ -203,21 +204,6 @@ function renderText() {
     var snapCtx = document.getElementById('snap').getContext('2d');
     snapCtx.clearRect(0, 0, 940, 300);
     snapPath.draw(snapCtx);
-}
-
-function enableHighDPICanvas(canvas) {
-    if (typeof canvas === 'string') {
-        canvas = document.getElementById(canvas);
-    }
-    var pixelRatio = window.devicePixelRatio || 1;
-    if (pixelRatio === 1) return;
-    var oldWidth = canvas.width;
-    var oldHeight = canvas.height;
-    canvas.width = oldWidth * pixelRatio;
-    canvas.height = oldHeight * pixelRatio;
-    canvas.style.width = oldWidth + 'px';
-    canvas.style.height = oldHeight + 'px';
-    canvas.getContext('2d').scale(pixelRatio, pixelRatio);
 }
 
 // Create a canvas and adds it to the document.

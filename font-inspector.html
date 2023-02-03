@@ -6,6 +6,7 @@
     <meta charset="utf-8">
     <link rel="stylesheet" href="site.css">
     <script type="text/javascript" src="dist/opentype.js"></script>
+    <script src="site.js"></script>
 </head>
 <body>
 <div class="header">
@@ -97,30 +98,6 @@ var font = null;
 var fontSize = 32;
 var textToRender = 'Grumpy wizards make toxic brew for the evil Queen and Jack.';
 var previewPath = null;
-
-function escapeHtml(unsafe) {
-    return unsafe
-         .replace(/&/g, '&amp;')
-         .replace(/</g, '&lt;')
-         .replace(/>/g, '&gt;')
-         .replace(/\u0022/g, '&quot;')
-         .replace(/\u0027/g, '&#039;');
-}
-
-function enableHighDPICanvas(canvas) {
-    if (typeof canvas === 'string') {
-        canvas = document.getElementById(canvas);
-    }
-    var pixelRatio = window.devicePixelRatio || 1;
-    if (pixelRatio === 1) return;
-    var oldWidth = canvas.width;
-    var oldHeight = canvas.height;
-    canvas.width = oldWidth * pixelRatio;
-    canvas.height = oldHeight * pixelRatio;
-    canvas.style.width = oldWidth + 'px';
-    canvas.style.height = oldHeight + 'px';
-    canvas.getContext('2d').scale(pixelRatio, pixelRatio);
-}
 
 function renderText() {
     if (!font) return;
