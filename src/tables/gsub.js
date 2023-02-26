@@ -1,9 +1,9 @@
 // The `GSUB` table contains ligatures, among other things.
 // https://www.microsoft.com/typography/OTSPEC/gsub.htm
 
-import check from '../check';
-import { Parser } from '../parse';
-import table from '../table';
+import check from '../check.js';
+import { Parser } from '../parse.js';
+import table from '../table.js';
 
 const subtableParsers = new Array(9);         // subtableParsers[0] is unused
 
@@ -221,7 +221,7 @@ subtableMakers[1] = function makeLookup1(subtable) {
             {name: 'coverage', type: 'TABLE', value: new table.Coverage(subtable.coverage)},
             {name: 'deltaGlyphID', type: 'SHORT', value: subtable.deltaGlyphId}
         ]);
-    } else {
+    } else if (subtable.substFormat === 2) {
         return new table.Table('substitutionTable', [
             {name: 'substFormat', type: 'USHORT', value: 2},
             {name: 'coverage', type: 'TABLE', value: new table.Coverage(subtable.coverage)}
@@ -259,7 +259,7 @@ subtableMakers[4] = function makeLookup4(subtable) {
         return new table.Table('ligatureSetTable', table.tableList('ligature', ligatureSet, function(ligature) {
             return new table.Table('ligatureTable',
                 [{name: 'ligGlyph', type: 'USHORT', value: ligature.ligGlyph}]
-                .concat(table.ushortList('component', ligature.components, ligature.components.length + 1))
+                    .concat(table.ushortList('component', ligature.components, ligature.components.length + 1))
             );
         }));
     })));

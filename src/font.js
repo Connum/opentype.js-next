@@ -1,14 +1,14 @@
 // The Font object
 
-import Path from './path';
-import sfnt from './tables/sfnt';
-import { DefaultEncoding } from './encoding';
-import glyphset from './glyphset';
-import Position from './position';
-import Substitution from './substitution';
-import { isBrowser, checkArgument, arrayBufferToNodeBuffer } from './util';
-import HintingTrueType from './hintingtt';
-import Bidi from './bidi';
+import Path from './path.js';
+import sfnt from './tables/sfnt.js';
+import { DefaultEncoding } from './encoding.js';
+import glyphset from './glyphset.js';
+import Position from './position.js';
+import Substitution from './substitution.js';
+import { isBrowser, checkArgument } from './util.js';
+import HintingTrueType from './hintingtt.js';
+import Bidi from './bidi.js';
 
 function createDefaultNamesInfo(options) {
     return {
@@ -113,6 +113,7 @@ function Font(options) {
             if (this.outlinesFormat === 'truetype') {
                 return (this._hinting = new HintingTrueType(this));
             }
+            return null;
         }
     });
 }
@@ -191,8 +192,8 @@ Font.prototype.stringToGlyphIndexes = function(s, options) {
 
     // roll-back to default features
     let features = options ?
-    this.updateFeatures(options.features) :
-    this.defaultRenderOptions.features;
+        this.updateFeatures(options.features) :
+        this.defaultRenderOptions.features;
 
     bidi.applyFeatures(this, features);
 
@@ -335,8 +336,8 @@ Font.prototype.forEachGlyph = function(text, x, y, fontSize, options, callback) 
             // We should apply position adjustment lookups in a more generic way.
             // Here we only use the xAdvance value.
             const kerningValue = kerningLookups ?
-                  this.position.getKerningValue(kerningLookups, glyph.index, glyphs[i + 1].index) :
-                  this.getKerningValue(glyph, glyphs[i + 1]);
+                this.position.getKerningValue(kerningLookups, glyph.index, glyphs[i + 1].index) :
+                this.getKerningValue(glyph, glyphs[i + 1]);
             x += kerningValue * fontScale;
         }
 
@@ -479,7 +480,7 @@ Font.prototype.validate = function() {
     function assertNamePresent(name) {
         const englishName = _this.getEnglishName(name);
         assert(englishName && englishName.trim().length > 0,
-               'No English ' + name + ' specified.');
+            'No English ' + name + ' specified.');
     }
 
     // Identification information
@@ -552,7 +553,11 @@ Font.prototype.download = function(fileName) {
         }
     } else {
         const fs = require('fs');
-        const buffer = arrayBufferToNodeBuffer(arrayBuffer);
+        const buffer = Buffer.alloc(arrayBuffer.byteLength);
+        const view = new Uint8Array(arrayBuffer);
+        for (let i = 0; i < buffer.length; ++i) {
+            buffer[i] = view[i];
+        }
         fs.writeFileSync(fileName, buffer);
     }
 };

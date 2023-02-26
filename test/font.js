@@ -1,5 +1,7 @@
 import assert from 'assert';
-import { Font, Glyph, Path, loadSync } from '../src/opentype';
+import { Font, Glyph, Path, parse } from '../src/opentype.js';
+import { readFileSync } from 'fs';
+const loadSync = (url, opt) => parse(readFileSync(url), opt);
 
 describe('font.js', function() {
     let font;
@@ -76,14 +78,14 @@ describe('font.js', function() {
         });
 
         it('works on fonts with coverage table format 2', function() {
-            const vibur = loadSync('./fonts/Vibur.woff');
+            const vibur = loadSync('./test/fonts/Vibur.woff');
             const glyphs = vibur.stringToGlyphs('er');
             assert.equal(glyphs.length, 1);
             assert.equal(glyphs[0].name, 'er');
         });
 
         it('works on fonts with coverage table format 2 on low memory mode', function() {
-            const vibur = loadSync('./fonts/Vibur.woff', {lowMemory: true});
+            const vibur = loadSync('./test/fonts/Vibur.woff', {lowMemory: true});
             const glyphs = vibur.stringToGlyphs('er');
             assert.equal(glyphs.length, 1);
             assert.equal(glyphs[0].name, 'er');
