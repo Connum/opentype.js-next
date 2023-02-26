@@ -91,7 +91,7 @@ describe('glyph.js', function() {
 
     describe('SVG handling', function() {
         it('should flip the path Y coordinates when generating or parsing SVG paths', function() {
-            const font = loadSync('./fonts/FiraSansMedium.woff');
+            const font = loadSync('./test/fonts/FiraSansMedium.woff');
             const glyph = font.charToGlyph('j');
             const svgPath = glyph.toPathData();
             const svgMarkup = glyph.toSVG();
