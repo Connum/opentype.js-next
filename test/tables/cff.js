@@ -74,9 +74,9 @@ describe('tables/cff.js', function () {
             '10 06'; // '10 06';
         const font = {
             encoding: 'cmap_encoding',
-            tables: []
+            tables: {maxp: {version: 0.5, numGlyphs: 2}}
         };
-        const opt = { lowMemory: true };
+        const opt = {};
         cff.parse(unhex(data), 4, font, opt);
         const topDict = font.tables.cff2.topDict;
         const fontDict1 = topDict._fdArray[0];
@@ -87,7 +87,6 @@ describe('tables/cff.js', function () {
         assert.notEqual(font.tables.cff2, undefined);
 
         assert.equal(font.encoding, 'cmap_encoding');
-        console.log(font.glyphs);
         assert.equal(font.nGlyphs, 2);
 
         assert.deepEqual(topDict.fontMatrix, [0.001, 0, 0, 0.001, 0, 0]);

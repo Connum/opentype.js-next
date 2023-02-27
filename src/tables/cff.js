@@ -301,9 +301,6 @@ function interpretDict(dict, meta, strings) {
             if (m.type === 'SID') {
                 value = getCFFString(strings, value);
             }
-            if (m.type === 'blend') {
-                // console.log(dict);
-            }
             newDict[m.name] = value;
         }
     }
@@ -398,7 +395,7 @@ const PRIVATE_DICT_META_CFF2 = [
     {name: 'familyBlues', op: 7, type: 'delta'},
     {name: 'familyBlues', op: 8, type: 'delta'},
     {name: 'familyOtherBlues', op: 9, type: 'delta'},
-    {name: 'blueScale', op: 1209, type: 'number'},
+    {name: 'blueScale', op: 1209, type: 'number', value: 0.039625},
     {name: 'blueShift', op: 1210, type: 'number', value: 7},
     {name: 'blueFuzz', op: 1211, type: 'number', value: 1},
     {name: 'stdHW', op: 10, type: 'number'},
@@ -573,11 +570,11 @@ function parseCFFEncoding(data, start, charset) {
     return new CffEncoding(enc, charset);
 }
 
-function parseBlend(operands, mode = 'pop') {
+function parseBlend(operands) {
     // @TODO: actually handle blending
-    let numberOfBlends = operands[mode]();
+    let numberOfBlends = operands.pop();
     while (operands.length > numberOfBlends) {
-        operands[mode]();
+        operands.pop();
     }
 }
 
@@ -600,20 +597,27 @@ function parseCFFCharstring(font, glyph, code, version) {
     let subrsBias;
     let defaultWidthX;
     let nominalWidthX;
+    let vsindex;
     const cffTable = font.tables.cff2 || font.tables.cff;
-    if (font.isCIDFont) {
-        const fdIndex = cffTable.topDict._fdSelect[glyph.index];
+    if (font.isCIDFont || version > 1) {
+        const fdIndex = cffTable.topDict._fdSelect ? cffTable.topDict._fdSelect[glyph.index] : 0;
         const fdDict = cffTable.topDict._fdArray[fdIndex];
         subrs = fdDict._subrs;
         subrsBias = fdDict._subrsBias;
         defaultWidthX = fdDict._defaultWidthX;
         nominalWidthX = fdDict._nominalWidthX;
+        if ( version > 1 ) {
+            vsindex = fdDict.vsindex;
+        }
     } else {
         subrs = cffTable.topDict._subrs;
         subrsBias = cffTable.topDict._subrsBias;
         defaultWidthX = cffTable.topDict._defaultWidthX;
         nominalWidthX = cffTable.topDict._nominalWidthX;
     }
+
+    console.log({subrsBias});
+
     let width = defaultWidthX;
 
     function newContour(x, y) {
@@ -837,15 +841,34 @@ function parseCFFCharstring(font, glyph, code, version) {
                         break;
                     }
                     // @TODO: handle vsindex in CFF2 CharString
+                    vsindex = stack.pop();
                     break;
                 case 16: // blend
                     if ( version < 2 ) {
                         console.error('CFF2 CharString operator blend (16) is not supported in CFF');
                         break;
                     }
-                    console.log(version);
-                    console.log(stack);
-                    // parseBlend(stack, 'shift');
+
+                    // @TODO: apply actual blend
+                    // https://learn.microsoft.com/en-us/typography/opentype/spec/cff2charstr#syntax-for-font-variations-support-operators
+
+                    var n = stack.pop();
+                    var deltaSets = stack.length - n;
+                    var delta = stack.length - deltaSets;
+                    var base = delta - n;
+      
+                    for (let i = 0; i < n; i++) {
+                        var sum = stack[base + i];
+                        for (let j = 0; j < n.length; j++) {
+                            sum += n[j] * stack[delta++];
+                        }
+        
+                        stack[base + i] = sum;
+                    }
+      
+                    while (deltaSets--) {
+                        stack.pop();
+                    }
                     break;
                 case 18: // hstemhm
                     parseStems();
@@ -1046,7 +1069,7 @@ function parseCFFFDSelect(data, start, nGlyphs, fdArrayCount, version) {
         }
     } else if (format === 3 || (version > 1 && format === 4)) {
         // Ranges
-        const nRanges = parser.parseCard16();
+        const nRanges = format === 4 ? parser.parseULong() : parser.parseCard16();
         let first = format === 4 ? parser.parseULong() : parser.parseCard16();
         if (first !== 0) {
             throw new Error(`CFF Table CID Font FDSelect format ${format} range has bad initial GID ${first}`);
@@ -1163,7 +1186,6 @@ function parseCFFTable(data, start, font, opt) {
     }
 
     // Offsets in the top dict are relative to the beginning of the CFF data, so add the CFF start offset.
-    // @TODO: support lowMemory mode for CFF2
     let charStringsIndex;
     if (opt.lowMemory) {
         charStringsIndex = parseCFFIndexLowMemory(data, start + topDict.charStrings, header.formatMajor);
@@ -1171,6 +1193,10 @@ function parseCFFTable(data, start, font, opt) {
     } else {
         charStringsIndex = parseCFFIndex(data, start + topDict.charStrings, null, header.formatMajor);
         font.nGlyphs = charStringsIndex.objects.length;
+    }
+
+    if ( header.formatMajor > 1 && font.tables.maxp && font.nGlyphs !== font.tables.maxp.numGlyphs ) {
+        console.error(`Glyph count in the CFF2 table (${font.nGlyphs}) must correspond to the glyph count in the maxp table (${font.tables.maxp.numGlyphs})`);
     }
 
     if (header.formatMajor < 2) {
@@ -1190,7 +1216,6 @@ function parseCFFTable(data, start, font, opt) {
     }
 
     font.glyphs = new glyphset.GlyphSet(font);
-    // @TODO: support lowMemory mode for CFF2
     if (opt.lowMemory) {
         font._push = function(i) {
             const charString = getCffIndexObject(i, charStringsIndex.offsets, data, start + topDict.charStrings, undefined, header.formatMajor);
