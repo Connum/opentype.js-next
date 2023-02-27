@@ -1,5 +1,5 @@
 import assert from 'assert';
-import { hex } from '../testutil.js';
+import { unhex, hex } from '../testutil.js';
 import Glyph from '../../src/glyph.js';
 import glyphset from '../../src/glyphset.js';
 import Path from '../../src/path.js';
@@ -76,33 +76,39 @@ describe('tables/cff.js', function () {
             encoding: 'cmap_encoding',
             tables: []
         };
-        const opt = {};
+        const opt = { lowMemory: true };
         cff.parse(unhex(data), 4, font, opt);
         const topDict = font.tables.cff2.topDict;
         const fontDict1 = topDict._fdArray[0];
         const privateDict1 = fontDict1._privateDict;
-        console.log(fontDict1);
+
+        // console.log(fontDict1);
+
         assert.notEqual(font.tables.cff2, undefined);
+
         assert.equal(font.encoding, 'cmap_encoding');
+        console.log(font.glyphs);
         assert.equal(font.nGlyphs, 2);
-        assert.equal(font.glyphs.length, 2);
+
         assert.deepEqual(topDict.fontMatrix, [0.001, 0, 0, 0.001, 0, 0]);
         assert.equal(topDict.charStrings, 56);
         assert.equal(topDict.vstore, 16);
         assert.equal(topDict.fdSelect, null);
-        assert.equal(privateDict1.subrs, 114);
+
+        assert.deepEqual(privateDict1.blueValues, [-20, 20, 472, 18, 35, 15, 105, 15, 10, 20, 40, 20]);
+        assert.deepEqual(privateDict1.otherBlues, [-250, 10]);
         assert.deepEqual(privateDict1.familyBlues, [-20, 20, 473, 18, 34, 15, 104, 15, 10, 20, 40, 20]);
         assert.deepEqual(privateDict1.familyOtherBlues, [ -249, 10 ]);
-        assert.equal(privateDict1.blueShift, 7);
-        assert.equal(privateDict1.expansionFactor, 0.06);
         assert.equal(privateDict1.blueScale, 0.0375);
+        assert.equal(privateDict1.blueShift, 7);
         assert.equal(privateDict1.blueFuzz, 0);
-        // @TOO: once we support the blend operator
-        // assert.equal(privateDict1.blueValues, [-20, 20, 472, 18, 35, 15, 105, 15, 10, 20, 40, 20, 0, 0, 0, 0, -6, 15, 0, 0, 12, -24, 0, 0, 1, -11, 0, 0, 0, 2, 0, 0, 1, -1, 0, 0, 12]);
-        // assert.equal(privateDict1.otherBlues, [-250, 10, -5, 18, 0, 0, 2]);
-        // assert.equal(privateDict1.StdHW, [55, -29, 19, 1]);
-        // assert.equal(privateDict1.StdVW, [80, -52, 110, 1]);
-        // assert.equal(privateDict1.StemSnapH, [40 15 -20 20 -9 -1 2]);
-        // assert.equal(privateDict1.StemSnapV, [80 10 -52 110 -6 0 2]);
+        assert.equal(privateDict1.stdHW, 55);
+        assert.equal(privateDict1.stdVW, 80);
+        assert.deepEqual(privateDict1.stemSnapH, [40, 15]);
+        assert.deepEqual(privateDict1.stemSnapV, [80, 10]);
+        assert.equal(privateDict1.languageGroup, 0);
+        assert.equal(privateDict1.expansionFactor, 0.06);
+        assert.deepEqual(privateDict1.vsindex, 0);
+        assert.equal(privateDict1.subrs, 114);
     });
 });
