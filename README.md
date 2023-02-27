@@ -282,7 +282,8 @@ See https://www.w3.org/TR/SVG/paths.html#PathData
 * `options`:
   * `decimalPlaces`: The amount of decimal places for floating-point values. (default: 2)
   * `optimize`: apply some optimizations to the path data, e.g. removing unnecessary/duplicate commands (true/false, default: true)
-  * `flipY`: whether to flip the Y axis of the path data, because SVG and font paths use inverted Y axes. (true: calculate from bounding box, false: disable, integer/float: a base value for the calculation. default: true)
+  * `flipY`: whether to flip the Y axis of the path data, because SVG and font paths use inverted Y axes. (true: calculate from bounding box, false: disable; default: true)
+  * `flipYBase`: Base value for the base flipping calculation. You'll probably want to calculate this from the font's ascender and descender values. (default: automatically calculate from the path data's bounding box)
 
 
 ##### `Path.toSVG(options)`
@@ -301,7 +302,7 @@ const path = Path.fromSVG('M0 0');
 ```
 * `pathData`: Either a string of SVG path commands, or (only in browser context) an `SVGPathElement`
 * `options`:
-  * `decimalPlaces`, `optimize`, `flipY`: see Path.toPathData
+  * `decimalPlaces`, `optimize`, `flipY`, `flipYBase`: see Path.toPathData
   * `scale`: scaling value applied to all command coordinates (default: 1)
   * `x`/`y`: offset applied to all command coordinates on the x or y axis (default: 0)
 

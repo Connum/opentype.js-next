@@ -112,7 +112,8 @@ describe('glyph.js', function() {
             const flipOption = {
                 minY: font.ascender,
                 maxY: font.ascender,
-                flipY: font.ascender + font.descender
+                flipY: true,
+                flipYBase: font.ascender + font.descender
             };
             glyph.fromSVG(trianglePathUp, flipOption);
             assert.equal(glyph.path.toPathData({flipY: false}), trianglePathDown);

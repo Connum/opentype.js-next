@@ -67,6 +67,7 @@ function createSVGParsingOptions(options) {
         decimalPlaces: 2,
         optimize: true,
         flipY: true,
+        flipYBase: undefined,
         scale: 1,
         x: 0,
         y: 0
@@ -88,7 +89,8 @@ function createSVGOutputOptions(options) {
     const defaultOptions = {
         decimalPlaces: 2,
         optimize: true,
-        flipY: true
+        flipY: true,
+        flipYBase: undefined
     };
     const newOptions = Object.assign({}, defaultOptions, options);
     return newOptions;
@@ -157,6 +159,10 @@ Path.prototype.fromSVG = function(pathData, options = {}) {
         if (relative && commandType !== 'H' && commandType !== 'V') {
             parsedBuffer = makeRelative.apply(this, [parsedBuffer]);
         }
+
+        const currentX = this.commands.length ? this.commands[this.commands.length - 1].x || 0 : 0;
+        const currentY = this.commands.length ? this.commands[this.commands.length - 1].y || 0 : 0;
+
         switch (commandType) {
             case 'M':
                 this.moveTo(...parsedBuffer);
@@ -165,7 +171,6 @@ Path.prototype.fromSVG = function(pathData, options = {}) {
                 this.lineTo(...parsedBuffer);
                 break;
             case 'V':
-                const currentX = this.commands.length ? this.commands[this.commands.length - 1].x || 0 : 0;
                 // multiple values interpreted as consecutive commands
                 for (let i = 0; i < parsedBuffer.length; i++) {
                     let offset = 0;
@@ -176,7 +181,6 @@ Path.prototype.fromSVG = function(pathData, options = {}) {
                 }
                 break;
             case 'H':
-                const currentY = this.commands.length ? this.commands[this.commands.length - 1].y || 0 : 0;
                 // multiple values interpreted as consecutive commands
                 for (let i = 0; i < parsedBuffer.length; i++) {
                     let offset = 0;
@@ -265,11 +269,11 @@ Path.prototype.fromSVG = function(pathData, options = {}) {
         this.commands = optimizeCommands(this.commands);
     }
 
-    let flipY = options.flipY;
-    const doFlipY = !!flipY || flipY === 0;
-    if (options.flipY === true) {
+    const flipY = options.flipY;
+    let flipYBase = options.flipYBase;
+    if (flipY === true && options.flipYBase === undefined) {
         const boundingBox = this.getBoundingBox();
-        flipY = boundingBox.y1 + boundingBox.y2;
+        flipYBase = boundingBox.y1 + boundingBox.y2;
     }
     // apply x/y offset, flipping and scaling
     for (const i in this.commands) {
@@ -278,7 +282,7 @@ Path.prototype.fromSVG = function(pathData, options = {}) {
             if (['x', 'x1', 'x2'].includes(prop)) {
                 this.commands[i][prop] = options.x + cmd[prop] * options.scale;
             } else if (['y', 'y1', 'y2'].includes(prop)) {
-                this.commands[i][prop] = options.y + (doFlipY ? flipY - cmd[prop] : cmd[prop]) * options.scale;
+                this.commands[i][prop] = options.y + (flipY ? flipYBase - cmd[prop] : cmd[prop]) * options.scale;
             }
         }
     }
@@ -546,13 +550,13 @@ Path.prototype.toPathData = function(options) {
         commandsCopy = optimizeCommands(commandsCopy);
     }
 
-    let flipY = options.flipY;
-    const doFlipY = !!flipY || flipY === 0;
-    if (options.flipY === true) {
+    const flipY = options.flipY;
+    let flipYBase = options.flipYBase;
+    if (flipY === true && flipYBase === undefined) {
         const tempPath = new Path();
         tempPath.extend(commandsCopy);
         const boundingBox = tempPath.getBoundingBox();
-        flipY = boundingBox.y1 + boundingBox.y2;
+        flipYBase = boundingBox.y1 + boundingBox.y2;
     }
     let d = '';
     for (let i = 0; i < commandsCopy.length; i += 1) {
@@ -560,28 +564,28 @@ Path.prototype.toPathData = function(options) {
         if (cmd.type === 'M') {
             d += 'M' + packValues(
                 cmd.x,
-                doFlipY ? flipY - cmd.y : cmd.y
+                flipY ? flipYBase - cmd.y : cmd.y
             );
         } else if (cmd.type === 'L') {
             d += 'L' + packValues(
                 cmd.x,
-                doFlipY ? flipY - cmd.y : cmd.y
+                flipY ? flipYBase - cmd.y : cmd.y
             );
         } else if (cmd.type === 'C') {
             d += 'C' + packValues(
                 cmd.x1,
-                doFlipY ? flipY - cmd.y1 : cmd.y1,
+                flipY ? flipYBase - cmd.y1 : cmd.y1,
                 cmd.x2,
-                doFlipY ? flipY - cmd.y2 : cmd.y2,
+                flipY ? flipYBase - cmd.y2 : cmd.y2,
                 cmd.x,
-                doFlipY ? flipY - cmd.y : cmd.y
+                flipY ? flipYBase - cmd.y : cmd.y
             );
         } else if (cmd.type === 'Q') {
             d += 'Q' + packValues(
                 cmd.x1,
-                doFlipY ? flipY - cmd.y1 : cmd.y1,
+                flipY ? flipYBase - cmd.y1 : cmd.y1,
                 cmd.x,
-                doFlipY ? flipY - cmd.y : cmd.y
+                flipY ? flipYBase - cmd.y : cmd.y
             );
         } else if (cmd.type === 'Z') {
             d += 'Z';
