@@ -1,13 +1,11 @@
+# opentype.js
 
-# opentype.js &middot; [![Build Status](https://travis-ci.org/opentypejs/opentype.js.svg?branch=master)](https://travis-ci.org/opentypejs/opentype.js) [![npm](https://img.shields.io/npm/v/opentype.js.svg?style=flat-square)](https://www.npmjs.com/package/opentype.js) [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square)](http://makeapullrequest.com) [![GitHub license](https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square)](https://github.com/opentypejs/opentype.js/blob/master/LICENSE)
+JavaScript parser and writer for TrueType and OpenType fonts.
 
-opentype.js is a JavaScript parser and writer for TrueType and OpenType fonts.
-
-It gives you access to the <strong>letterforms</strong> of text from the browser or Node.js.
+It gives you access to the **letterforms** of text from the browser or Node.js.
 See [https://opentype.js.org/](https://opentype.js.org/) for a live demo.
 
-Features
-========
+## Features
 
 * Create a bézier path out of a piece of text.
 * Support for composite glyphs (accented letters).
@@ -19,13 +17,34 @@ Features
 * A low memory mode is available as an option (see #329)
 * Runs in the browser and Node.js.
 
-Installation
-============
+## Installation
 
-### Using [npm](http://npmjs.org/) package manager
+### via CDN
 
-    npm install opentype.js
-    
+Select one of the following sources in the next example:
+
+- https://opentype.js.org/dist/opentype.js
+- https://cdn.jsdelivr.net/npm/opentype.js
+- https://unpkg.com/opentype.js
+
+```html
+<!-- using global declaration -->
+<script src="https://your.favorite.cdn/opentype.js"></script>
+<script>opentype.parse(...)</script>
+
+<!-- using module declaration (need full path) -->
+<script type=module>
+import { parse } from "https://unpkg.com/opentype.js/dist/opentype.module.js";
+parse(...);
+</script>
+```
+
+### via [npm](http://npmjs.org/) package manager
+
+```sh
+npm install opentype.js
+```
+ 
 ```js
 const opentype = require('opentype.js');
 
@@ -34,79 +53,58 @@ import opentype from 'opentype.js'
 import { load } from 'opentype.js'
 ```
 
-Using TypeScript? [See this example](examples/typescript)
+Using TypeScript? [See this example](./docs/examples/typescript)
 
-Note: OpenType.js uses ES6-style imports, so if you want to edit it and debug it in Node.js run `npm run build` first and use `npm run watch` to automatically rebuild when files change.
+## Contribute
 
-### Directly
+If you plan on improving or debugging opentype.js, you can:
 
-[Download the latest ZIP](https://github.com/opentypejs/opentype.js/archive/master.zip) and grab the files in the `dist`
-folder. These are compiled.
+- Fork the [opentype.js](https://github.com/opentypejs/opentype.js) repo
+- clone your fork `git clone git://github.com/yourname/opentype.js.git`
+- move into the project `cd opentype.js`
+- install needed dependencies with `npm install`
+- **option A:** for a simple build use `npm run build`
+- **option B:** for a development server use `npm run start` and navigate to the `/docs` folder
+- check if all still work fine with `npm run test`
+- commit and pull requesting your changes. Thanks you !
 
-### Using via a CDN
+## Usage
 
-To use via a CDN, include the following code in your html:
-
-    <script src="https://cdn.jsdelivr.net/npm/opentype.js@latest/dist/opentype.min.js"></script>
-
-### Using Bower (Deprecated [see official post](https://bower.io/blog/2017/how-to-migrate-away-from-bower/))
-
-To install using [Bower](https://bower.io/), enter the following command in your project directory:
-
-    bower install opentype.js
-
-You can then include them in your scripts using:
-
-    <script src="/bower_components/opentype.js/dist/opentype.js"></script>
-
-
-API
-===
 ### Loading a font
-![OpenType.js example Hello World](https://raw.github.com/opentypejs/opentype.js/master/g/hello-world.png)
 
-Use `opentype.load(url, callback)` to load a font from a URL. Since this method goes out the network, it is asynchronous.
-The callback gets `(err, font)` where `font` is a `Font` object. Check if the `err` is null before using the font.
-```javascript
-opentype.load('fonts/Roboto-Black.ttf', function(err, font) {
-    if (err) {
-        alert('Font could not be loaded: ' + err);
-    } else {
-        // Now let's display it on a canvas with id "canvas"
-        const ctx = document.getElementById('canvas').getContext('2d');
+```js
+// case 1: from an URL
+const buffer = fetch('/fonts/my.woff').then(res => res.arrayBuffer());
+// case 2: from filesystem (node)
+const buffer = require('fs').promises.readFile('./my.woff');
+// case 3: from an <input type=file id=myfile>
+const buffer = document.getElementById('myfile').files[0].arrayBuffer();
 
-        // Construct a Path object containing the letter shapes of the given text.
-        // The other parameters are x, y and fontSize.
-        // Note that y is the position of the baseline.
-        const path = font.getPath('Hello, World!', 0, 150, 72);
+// if running in async context:
+const font = opentype.parse(await data);
+console.log(font.supported);
 
-        // If you just want to draw the text you can also use font.draw(ctx, text, x, y, fontSize).
-        path.draw(ctx);
-    }
-});
+// if not running in async context:
+buffer.then(data => {
+    const font = opentype.parse(data);
+    // ... play with `font` ...
+    console.log(font.supported);
+})
 ```
 
-You can also use `es6 async/await` syntax to load your fonts
+### Loading a font (1.x style)
 
-```javascript
-async function make(){
-    const font = await opentype.load('fonts/Roboto-Black.ttf');
-    const path = font.getPath('Hello, World!', 0, 150, 72);
-    console.log(path);
-}
+This example rely on the deprecated `.load()` method
+
+```js
+// case 1: from an URL
+const font = opentype.load('./fonts/my.woff', {}, {isUrl: true});
+// case 2: from filesystem
+const font = opentype.load('./fonts/my.woff', {}, {isUrl: false});
+
+// ... play with `font` ...
+console.log(font.supported);
 ```
-
-If you already have an `ArrayBuffer`, you can use `opentype.parse(buffer)` to parse the buffer. This method always
-returns a Font, but check `font.supported` to see if the font is in a supported format. (Fonts can be marked unsupported
-if they have encoding tables we can't read).
-
-    const font = opentype.parse(myBuffer);
-
-### Loading a font synchronously (Node.js)
-Use `opentype.loadSync(url)` to load a font from a file and return a `Font` object.
-Throws an error if the font could not be parsed. This only works in Node.js.
-
-    const font = opentype.loadSync('fonts/Roboto-Black.ttf');
 
 ### Writing a font
 Once you have a `Font` object (either by using `opentype.load` or by creating a new one from scratch) you can write it
@@ -145,8 +143,9 @@ const font = new opentype.Font({
 font.download();
 ```
 
-If you want to inspect the font, use `font.toTables()` to generate an object showing the data structures that map
-directly to binary values. If you want to get an `ArrayBuffer`, use `font.toArrayBuffer()`.
+If you want to inspect the font, use `font.toTables()`
+to generate an object showing the data structures that map directly to binary values.
+If you want to get an `ArrayBuffer`, use `font.toArrayBuffer()`.
 
 
 ### The Font object
@@ -258,6 +257,9 @@ Blue lines indicate the glyph bounding box.
 Green line indicates the advance width of the glyph.
 The arguments are the same as `Glyph.draw`.
 
+##### `Glyph.toPathData(options)`, `Glyph.toDOMElement(options)`, `Glyph.toSVG(options)`, `Glyph.fromSVG(pathData, options)`,
+These are currently only wrapper functions for their counterparts on Path objects (see documentation there), but may be extended in the future to pass on Glyph data for automatic calculation.
+
 ### The Path object
 Once you have a path through `Font.getPath` or `Glyph.getPath`, you can use it.
 
@@ -274,14 +276,34 @@ Draw the path on the given 2D context. This uses the `fill`, `stroke` and `strok
 Calculate the minimum bounding box for the given path. Returns an `opentype.BoundingBox` object that contains x1/y1/x2/y2.
 If the path is empty (e.g. a space character), all coordinates will be zero.
 
-##### `Path.toPathData(decimalPlaces)`
+##### `Path.toPathData(options)`
 Convert the Path to a string of path data instructions.
 See https://www.w3.org/TR/SVG/paths.html#PathData
-* `decimalPlaces`: The amount of decimal places for floating-point values. (default: 2)
+* `options`:
+  * `decimalPlaces`: The amount of decimal places for floating-point values. (default: 2)
+  * `optimize`: apply some optimizations to the path data, e.g. removing unnecessary/duplicate commands (true/false, default: true)
+  * `flipY`: whether to flip the Y axis of the path data, because SVG and font paths use inverted Y axes. (true: calculate from bounding box, false: disable, integer/float: a base value for the calculation. default: true)
 
-##### `Path.toSVG(decimalPlaces)`
+
+##### `Path.toSVG(options)`
 Convert the path to a SVG &lt;path&gt; element, as a string.
-* `decimalPlaces`: The amount of decimal places for floating-point values. (default: 2)
+* `options`: see Path.toPathData
+
+##### `Path.fromSVG(pathData, options)`
+Retrieve path from SVG path data. Either overwriting the path data for an existing path
+```js
+const path = new Path();
+path.fromSVG('M0 0');
+```
+or creating a new Path directly:
+```js
+const path = Path.fromSVG('M0 0');
+```
+* `pathData`: Either a string of SVG path commands, or (only in browser context) an `SVGPathElement`
+* `options`:
+  * `decimalPlaces`, `optimize`, `flipY`: see Path.toPathData
+  * `scale`: scaling value applied to all command coordinates (default: 1)
+  * `x`/`y`: offset applied to all command coordinates on the x or y axis (default: 0)
 
 #### Path commands
 * **Move To**: Move to a new position. This creates a new contour. Example: `{type: 'M', x: 100, y: 200}`
@@ -294,7 +316,6 @@ Convert the path to a SVG &lt;path&gt; element, as a string.
 ## Versioning
 
 We use [SemVer](https://semver.org/) for versioning.
-
 
 ## License
 
@@ -312,4 +333,4 @@ I would like to acknowledge the work of others without which opentype.js wouldn'
 * [tiny-inflate](https://github.com/foliojs/tiny-inflate): for WOFF decompression.
 * [Microsoft Typography](https://docs.microsoft.com/en-us/typography/opentype/spec/otff): the go-to reference for all things OpenType.
 * [Adobe Compact Font Format spec](http://download.microsoft.com/download/8/0/1/801a191c-029d-4af3-9642-555f6fe514ee/cff.pdf) and the [Adobe Type 2 Charstring spec](http://download.microsoft.com/download/8/0/1/801a191c-029d-4af3-9642-555f6fe514ee/type2.pdf): explains the data structures and commands for the CFF glyph format.
-* All contributing authors mentioned in the [AUTHORS](https://github.com/opentypejs/opentype.js/blob/master/AUTHORS.md) file.
+* All [contributors](https://github.com/opentypejs/opentype.js/graphs/contributors).

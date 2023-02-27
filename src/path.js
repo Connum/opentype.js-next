@@ -1,6 +1,6 @@
 // Geometric objects
 
-import BoundingBox from './bbox';
+import BoundingBox from './bbox.js';
 
 /**
  * A bézier path containing a set of path commands similar to a SVG path.
@@ -62,7 +62,7 @@ function optimizeCommands(commands) {
  * Returns options merged with the default options for parsing SVG data
  * @param {object} options (optional)
  */
-function defaultSVGParsingOptions(options) {
+function createSVGParsingOptions(options) {
     const defaultOptions = {
         decimalPlaces: 2,
         optimize: true,
@@ -79,7 +79,7 @@ function defaultSVGParsingOptions(options) {
  * Returns options merged with the default options for outputting SVG data
  * @param {object} options (optional)
  */
-function defaultSVGOutputOptions(options) {
+function createSVGOutputOptions(options) {
     // accept number for backwards compatibility
     // and in that case set flipY to false
     if (parseInt(options) === options) {
@@ -105,10 +105,12 @@ Path.prototype.fromSVG = function(pathData, options = {}) {
     }
 
     // set/merge default options
-    options = defaultSVGParsingOptions(options);
+    options = createSVGParsingOptions(options);
 
     this.commands = [];
 
+    // TODO: a generator function could possibly increase performance and reduce memory usage,
+    // but our current build process doesn't allow to use those yet.
     const number = '0123456789';
     const supportedCommands = 'MmLlQqCcZzHhVv';
     const unsupportedCommands = 'SsTtAa';
@@ -135,7 +137,7 @@ Path.prototype.fromSVG = function(pathData, options = {}) {
         }
         const lastCommand = this.commands[this.commands.length - 1];
         for (let i = 0; i < buffer.length; i++) {
-            buffer[i] += lastCommand[i % 2 ? 'y' : 'x'];
+            buffer[i] += lastCommand[i & 1 ? 'y' : 'x'];
         }
         return buffer;
     }
@@ -264,7 +266,8 @@ Path.prototype.fromSVG = function(pathData, options = {}) {
     }
 
     let flipY = options.flipY;
-    if (flipY === true) {
+    const doFlipY = !!flipY || flipY === 0;
+    if (options.flipY === true) {
         const boundingBox = this.getBoundingBox();
         flipY = boundingBox.y1 + boundingBox.y2;
     }
@@ -275,7 +278,7 @@ Path.prototype.fromSVG = function(pathData, options = {}) {
             if (['x', 'x1', 'x2'].includes(prop)) {
                 this.commands[i][prop] = options.x + cmd[prop] * options.scale;
             } else if (['y', 'y1', 'y2'].includes(prop)) {
-                this.commands[i][prop] = options.y + (flipY !== false ? flipY - cmd[prop] : cmd[prop]) * options.scale;
+                this.commands[i][prop] = options.y + (doFlipY ? flipY - cmd[prop] : cmd[prop]) * options.scale;
             }
         }
     }
@@ -512,7 +515,7 @@ Path.prototype.draw = function(ctx) {
  */
 Path.prototype.toPathData = function(options) {
     // set/merge default options
-    options = defaultSVGOutputOptions(options);
+    options = createSVGOutputOptions(options);
 
     function floatToString(v) {
         if (Math.round(v) === roundDecimal(v, options.decimalPlaces)) {
@@ -544,7 +547,8 @@ Path.prototype.toPathData = function(options) {
     }
 
     let flipY = options.flipY;
-    if (flipY === true) {
+    const doFlipY = !!flipY || flipY === 0;
+    if (options.flipY === true) {
         const tempPath = new Path();
         tempPath.extend(commandsCopy);
         const boundingBox = tempPath.getBoundingBox();
@@ -556,28 +560,28 @@ Path.prototype.toPathData = function(options) {
         if (cmd.type === 'M') {
             d += 'M' + packValues(
                 cmd.x,
-                flipY === false ? cmd.y : flipY - cmd.y
+                doFlipY ? flipY - cmd.y : cmd.y
             );
         } else if (cmd.type === 'L') {
             d += 'L' + packValues(
                 cmd.x,
-                flipY === false ? cmd.y : flipY - cmd.y
+                doFlipY ? flipY - cmd.y : cmd.y
             );
         } else if (cmd.type === 'C') {
             d += 'C' + packValues(
                 cmd.x1,
-                flipY === false ? cmd.y1 : flipY - cmd.y1,
+                doFlipY ? flipY - cmd.y1 : cmd.y1,
                 cmd.x2,
-                flipY === false ? cmd.y2 : flipY - cmd.y2,
+                doFlipY ? flipY - cmd.y2 : cmd.y2,
                 cmd.x,
-                flipY === false ? cmd.y : flipY - cmd.y
+                doFlipY ? flipY - cmd.y : cmd.y
             );
         } else if (cmd.type === 'Q') {
             d += 'Q' + packValues(
                 cmd.x1,
-                flipY === false ? cmd.y1 : flipY - cmd.y1,
+                doFlipY ? flipY - cmd.y1 : cmd.y1,
                 cmd.x,
-                flipY === false ? cmd.y : flipY - cmd.y
+                doFlipY ? flipY - cmd.y : cmd.y
             );
         } else if (cmd.type === 'Z') {
             d += 'Z';
@@ -635,4 +639,3 @@ Path.prototype.toDOMElement = function(options, pathData) {
 };
 
 export default Path;
-export { Path, defaultSVGParsingOptions, defaultSVGOutputOptions };

@@ -1,7 +1,7 @@
 // Data types used in the OpenType font file.
 // All OpenType fonts use Motorola-style byte ordering (Big Endian)
 
-import check from './check';
+import check from './check.js';
 
 const LIMIT16 = 32768; // The limit at which a 16-bit number switches signs == 2^15
 const LIMIT32 = 2147483648; // The limit at which a 32-bit number switches signs == 2 ^ 31
@@ -207,9 +207,9 @@ sizeOf.LONGDATETIME = constant(8);
 encode.TAG = function(v) {
     check.argument(v.length === 4, 'Tag should be exactly 4 ASCII characters.');
     return [v.charCodeAt(0),
-            v.charCodeAt(1),
-            v.charCodeAt(2),
-            v.charCodeAt(3)];
+        v.charCodeAt(1),
+        v.charCodeAt(2),
+        v.charCodeAt(3)];
 };
 
 /**
@@ -733,9 +733,9 @@ encode.INDEX = function(l) {
     }
 
     return Array.prototype.concat(encode.Card16(l.length),
-                           encode.OffSize(offSize),
-                           encodedOffsets,
-                           data);
+        encode.OffSize(offSize),
+        encodedOffsets,
+        data);
 };
 
 /**
