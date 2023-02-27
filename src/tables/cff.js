@@ -599,21 +599,23 @@ function parseCFFCharstring(font, glyph, code, version) {
     let nominalWidthX;
     let vsindex;
     const cffTable = font.tables.cff2 || font.tables.cff;
+    defaultWidthX = cffTable.topDict._defaultWidthX;
+    nominalWidthX = cffTable.topDict._nominalWidthX;
     if (font.isCIDFont || version > 1) {
         const fdIndex = cffTable.topDict._fdSelect ? cffTable.topDict._fdSelect[glyph.index] : 0;
         const fdDict = cffTable.topDict._fdArray[fdIndex];
+        console.log(fdDict);
         subrs = fdDict._subrs;
         subrsBias = fdDict._subrsBias;
-        defaultWidthX = fdDict._defaultWidthX;
-        nominalWidthX = fdDict._nominalWidthX;
         if ( version > 1 ) {
             vsindex = fdDict.vsindex;
+        } else {
+            defaultWidthX = fdDict._defaultWidthX;
+            nominalWidthX = fdDict._nominalWidthX;
         }
     } else {
         subrs = cffTable.topDict._subrs;
         subrsBias = cffTable.topDict._subrsBias;
-        defaultWidthX = cffTable.topDict._defaultWidthX;
-        nominalWidthX = cffTable.topDict._nominalWidthX;
     }
 
     console.log({subrsBias});
