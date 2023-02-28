@@ -604,7 +604,6 @@ function parseCFFCharstring(font, glyph, code, version) {
     if (font.isCIDFont || version > 1) {
         const fdIndex = cffTable.topDict._fdSelect ? cffTable.topDict._fdSelect[glyph.index] : 0;
         const fdDict = cffTable.topDict._fdArray[fdIndex];
-        console.log(fdDict);
         subrs = fdDict._subrs;
         subrsBias = fdDict._subrsBias;
         if ( version > 1 ) {
@@ -617,8 +616,6 @@ function parseCFFCharstring(font, glyph, code, version) {
         subrs = cffTable.topDict._subrs;
         subrsBias = cffTable.topDict._subrsBias;
     }
-
-    console.log({subrsBias});
 
     let width = defaultWidthX;
 
@@ -855,20 +852,20 @@ function parseCFFCharstring(font, glyph, code, version) {
                     // https://learn.microsoft.com/en-us/typography/opentype/spec/cff2charstr#syntax-for-font-variations-support-operators
 
                     var n = stack.pop();
-                    var deltaSets = stack.length - n;
-                    var delta = stack.length - deltaSets;
-                    var base = delta - n;
+                    // var deltaSets = stack.length - n;
+                    // var delta = stack.length - deltaSets;
+                    // var base = delta - n;
       
-                    for (let i = 0; i < n; i++) {
-                        var sum = stack[base + i];
-                        for (let j = 0; j < n.length; j++) {
-                            sum += n[j] * stack[delta++];
-                        }
-        
-                        stack[base + i] = sum;
-                    }
+                    // for (let i = 0; i < n; i++) {
+                    //     var sum = stack[base + i];
+                    //     for (let j = 0; j < n.length; j++) {
+                    //         sum += 1 * stack[delta++];
+                    //     }
+                    //     stack[base + i] = sum;
+                    // }
       
-                    while (deltaSets--) {
+                    // while (deltaSets--) {
+                    while (stack.length > n) {
                         stack.pop();
                     }
                     break;
