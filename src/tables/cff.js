@@ -315,7 +315,7 @@ function parseCFFHeader(data, start) {
     header.formatMinor = parse.getCard8(data, start + 1);
 
     if(header.formatMajor > 2) {
-        throw new Error(`Unsupported CFF table version ${header.formatMajor}.${header.formatMinor}`)
+        throw new Error(`Unsupported CFF table version ${header.formatMajor}.${header.formatMinor}`);
     }
 
     header.size = parse.getCard8(data, start + 2);

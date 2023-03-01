@@ -323,8 +323,6 @@ function parseBuffer(buffer, opt={}) {
             case 'meta':
                 metaTableEntry = tableEntry;
                 break;
-            default:
-                console.warn(`Unknown table ${tableEntry.tag}`);
         }
     }
 
