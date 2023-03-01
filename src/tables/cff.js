@@ -571,7 +571,6 @@ function parseCFFEncoding(data, start, charset) {
 }
 
 function parseBlend(operands) {
-    // @TODO: actually handle blending
     let numberOfBlends = operands.pop();
     while (operands.length > numberOfBlends) {
         operands.pop();
@@ -597,7 +596,8 @@ function parseCFFCharstring(font, glyph, code, version) {
     let subrsBias;
     let defaultWidthX;
     let nominalWidthX;
-    let vsindex;
+    let vsindex = 0;
+    let vstore = [];
     const cffTable = font.tables.cff2 || font.tables.cff;
     defaultWidthX = cffTable.topDict._defaultWidthX;
     nominalWidthX = cffTable.topDict._nominalWidthX;
@@ -607,7 +607,8 @@ function parseCFFCharstring(font, glyph, code, version) {
         subrs = fdDict._subrs;
         subrsBias = fdDict._subrsBias;
         if ( version > 1 ) {
-            vsindex = fdDict.vsindex;
+            vstore = cffTable.topDict._vstore.itemVariationStore.itemVariationSubtables;
+            vsindex = fdDict._privateDict.vsindex;
         } else {
             defaultWidthX = fdDict._defaultWidthX;
             nominalWidthX = fdDict._nominalWidthX;
@@ -839,7 +840,6 @@ function parseCFFCharstring(font, glyph, code, version) {
                         console.error('CFF2 CharString operator vsindex (15) is not supported in CFF');
                         break;
                     }
-                    // @TODO: handle vsindex in CFF2 CharString
                     vsindex = stack.pop();
                     break;
                 case 16: // blend
@@ -850,22 +850,22 @@ function parseCFFCharstring(font, glyph, code, version) {
 
                     // @TODO: apply actual blend
                     // https://learn.microsoft.com/en-us/typography/opentype/spec/cff2charstr#syntax-for-font-variations-support-operators
-
+                    
+                    var blendStore = vstore[vsindex];
                     var n = stack.pop();
-                    // var deltaSets = stack.length - n;
-                    // var delta = stack.length - deltaSets;
-                    // var base = delta - n;
+                    var deltaSetCount = n * blendStore.regionIndexes.length;
+                    var delta = stack.length - deltaSetCount;
+                    var deltaSetIndex = delta - n;
       
-                    // for (let i = 0; i < n; i++) {
-                    //     var sum = stack[base + i];
-                    //     for (let j = 0; j < n.length; j++) {
-                    //         sum += 1 * stack[delta++];
-                    //     }
-                    //     stack[base + i] = sum;
-                    // }
+                    for (let i = 0; i < n; i++) {
+                        var sum = stack[deltaSetIndex + i];
+                        for (let j = 0; j < n.length; j++) {
+                            sum += 1 * stack[delta++];
+                        }
+                        stack[deltaSetIndex + i] = sum;
+                    }
       
-                    // while (deltaSets--) {
-                    while (stack.length > n) {
+                    while (deltaSetCount--) {
                         stack.pop();
                     }
                     break;
@@ -1047,8 +1047,13 @@ function parseCFFCharstring(font, glyph, code, version) {
     }
 
     parse(code);
+    
+    if (version > 1) {
+        // @TODO: check if we need to handle/apply hmtx/HVAR data here or elsewhere, once HVAR is supported
+    } else {
+        glyph.advanceWidth = width;
+    }
 
-    glyph.advanceWidth = width;
     return p;
 }
 
