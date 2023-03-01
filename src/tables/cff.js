@@ -1048,9 +1048,8 @@ function parseCFFCharstring(font, glyph, code, version) {
 
     parse(code);
     
-    if (version > 1) {
-        // @TODO: check if we need to handle/apply hmtx/HVAR data here or elsewhere, once HVAR is supported
-    } else {
+    // @TODO: check if we need to handle/apply hmtx/HVAR data here or elsewhere, once HVAR is supported
+    if (haveWidth) {
         glyph.advanceWidth = width;
     }
 
@@ -1446,6 +1445,7 @@ function makePrivateDict(attrs, strings, version) {
 
 function makeCFFTable(glyphs, options,) {
     // @TODO: make it configurable to use CFF or CFF2 for output
+    // right now, CFF2 fonts can be parsed, but will be saved as CFF
     const cffVersion = 1;
 
     const t = new table.Table('CFF ', [
