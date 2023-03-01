@@ -266,22 +266,20 @@ describe('parse.js', function() {
                 'C000 C000 E000 ' + // variationRegions[1], regionAxes[0]
                 'C000 E000 0000 ';  // variationRegions[1], regionAxes[1]
             const p = new Parser(unhex(data), 0);
-            assert.deepEqual(p.parseVariationRegionList(), {
-                variationRegions: [
-                    {
-                        regionAxes: [
-                            { startCoord: -1.0, peakCoord: -0.5, endCoord: 0.0 },
-                            { startCoord: -1.0, peakCoord: -1.0, endCoord: -0.5 }
-                        ]
-                    },
-                    {
-                        regionAxes: [
-                            { startCoord: -1.0, peakCoord: -1.0, endCoord: -0.5 },
-                            { startCoord: -1.0, peakCoord: -0.5, endCoord: 0.0 }
-                        ]
-                    }
-                ]
-            });
+            assert.deepEqual(p.parseVariationRegionList(), [
+                {
+                    regionAxes: [
+                        { startCoord: -1.0, peakCoord: -0.5, endCoord: 0.0 },
+                        { startCoord: -1.0, peakCoord: -1.0, endCoord: -0.5 }
+                    ]
+                },
+                {
+                    regionAxes: [
+                        { startCoord: -1.0, peakCoord: -1.0, endCoord: -0.5 },
+                        { startCoord: -1.0, peakCoord: -0.5, endCoord: 0.0 }
+                    ]
+                }
+            ]);
             assert.equal(p.relativeOffset, 28);
         });
     });
