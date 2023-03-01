@@ -80,9 +80,8 @@ describe('tables/cff.js', function () {
         cff.parse(unhex(data), 4, font, opt);
         const topDict = font.tables.cff2.topDict;
         const fontDict1 = topDict._fdArray[0];
+        const variationStore = topDict._vstore;
         const privateDict1 = fontDict1._privateDict;
-
-        // console.log(fontDict1);
 
         assert.notEqual(font.tables.cff2, undefined);
 
@@ -109,5 +108,34 @@ describe('tables/cff.js', function () {
         assert.equal(privateDict1.expansionFactor, 0.06);
         assert.deepEqual(privateDict1.vsindex, 0);
         assert.equal(privateDict1.subrs, 114);
+
+        assert.deepEqual(variationStore, {
+            itemVariationStore: {
+                format: 1,
+                itemVariationSubtables: [
+                    { deltaSets: [], regionIndexes: [0, 1] }
+                ],
+                variationRegions: [
+                    {
+                        regionAxes: [
+                            { startCoord: -1.0, peakCoord: -0.5, endCoord: 0.0 },
+                        ]
+                    },
+                    {
+                        regionAxes: [
+                            { startCoord: -1.0, peakCoord: -1.0, endCoord: -0.5 }
+                        ]
+                    }
+                ]
+            }
+        });
+
+        assert.deepEqual(font.glyphs.get(0).path, font.glyphs.get(1).path);
+        assert.deepEqual(font.glyphs.get(0).path.commands, [
+            { type: 'M', x: 50, y: 0 },
+            { type: 'L', x: 550, y: 0 },
+            { type: 'L', x: 550, y: 500 },
+            { type: 'L', x: 50, y: 500 }
+        ] );
     });
 });

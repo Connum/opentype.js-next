@@ -1226,6 +1226,11 @@ function parseCFFTable(data, start, font, opt) {
             font.glyphs.push(i, glyphset.cffGlyphLoader(font, i, parseCFFCharstring, charString, header.formatMajor));
         }
     }
+
+    if (topDict.vstore) {
+        const p = new parse.Parser(data, start + topDict.vstore);
+        topDict._vstore = p.parseVariationStore();
+    }
 }
 
 // Convert a string to a String ID (SID).
