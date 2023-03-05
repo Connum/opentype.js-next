@@ -552,13 +552,14 @@ Font.prototype.download = function(fileName) {
             console.warn('Font file could not be downloaded. Try using a different browser.');
         }
     } else {
-        const fs = require('fs');
-        const buffer = Buffer.alloc(arrayBuffer.byteLength);
-        const view = new Uint8Array(arrayBuffer);
-        for (let i = 0; i < buffer.length; ++i) {
-            buffer[i] = view[i];
-        }
-        fs.writeFileSync(fileName, buffer);
+        import('fs').then(function(fs) {
+            const buffer = Buffer.alloc(arrayBuffer.byteLength);
+            const view = new Uint8Array(arrayBuffer);
+            for (let i = 0; i < buffer.length; ++i) {
+                buffer[i] = view[i];
+            }
+            fs.writeFileSync(fileName, buffer);
+        });
     }
 };
 /**

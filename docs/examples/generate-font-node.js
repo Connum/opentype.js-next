@@ -1,6 +1,6 @@
 // This example shows how to create a font from scratch using node.js.
 
-const { Font, Glyph, Path } = require('../dist/opentype');
+import { Font, Glyph, Path } from '../../dist/opentype.module.js';
 
 // These are the global measurements of the typeface.
 var UNITS_PER_EM = 1000;

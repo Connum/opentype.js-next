@@ -15,7 +15,7 @@ describe('opentype.js', function() {
         assert.equal(aGlyph.path.commands.length, 15);
     });
 
-    it('[deprecated] .load() promise resolve uppon success', function(done) {
+    it('.load() promise resolve uppon success', function(done) {
         load('./test/fonts/Roboto-Black.ttf').then((font) => {
             assert.deepEqual(font.names.macintosh.fontFamily, {en: 'Roboto Black'});
             assert.deepEqual(font.names.windows.fontFamily, {en: 'Roboto Black'});
@@ -68,7 +68,7 @@ describe('opentype.js', function() {
         assert.equal(aGlyph.path.commands.length, 14);
     });
 
-    it('[deprecated] .load() handles a parseBuffer error', function(done) {
+    it('.load() handles a parseBuffer error', function(done) {
         load('./test/fonts/badfont.ttf', function(err) {
             if (err) {
                 done();
@@ -76,7 +76,7 @@ describe('opentype.js', function() {
         });
     });
 
-    it('[deprecated] .load() handles a parseBuffer error as a rejected promise', function(done) {
+    it('.load() handles a parseBuffer error as a rejected promise', function(done) {
         load('./test/fonts/badfont.ttf')
             .catch((err) => {
                 if (err) {

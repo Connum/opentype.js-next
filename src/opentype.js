@@ -33,7 +33,10 @@ import _name from './tables/name.js';
 import os2 from './tables/os2.js';
 import post from './tables/post.js';
 import meta from './tables/meta.js';
-import { readFile, readFileSync} from 'fs';
+import { isBrowser } from './util.js';
+
+const fsImport = isBrowser() ? null : import('fs');
+
 /**
  * The opentype library.
  * @namespace opentype
@@ -47,12 +50,17 @@ import { readFile, readFileSync} from 'fs';
  * @param  {Function} callback - The function to call when the font load completes
  */
 function loadFromFile(path, callback) {
-    readFile(path, function(err, buffer) {
-        if (err) {
-            return callback(err.message);
-        }
+    if (fsImport === null) {
+        throw new Error('The loadFromFile() method is only available in Node context.');
+    }
+    fsImport.then(function(fs) {
+        fs.readFile(path, function(err, buffer) {
+            if (err) {
+                return callback(err.message);
+            }
 
-        callback(null, buffer);
+            callback(null, buffer);
+        });
     });
 }
 
@@ -469,8 +477,12 @@ function load(url, callback, opt = {}) {
  * @param  {Object} opt - opt.lowMemory
  * @return {opentype.Font}
  */
-function loadSync(url, opt) {
-    return parseBuffer(readFileSync(url), opt);
+async function loadSync(url, opt) {
+    if (fsImport === null) {
+        throw new Error('The loadSync() method is only available in Node context.');
+    }
+    const fs = await fsImport;
+    return parseBuffer(fs.readFileSync(url), opt);
 }
 
 export {
