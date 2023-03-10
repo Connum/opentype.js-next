@@ -283,4 +283,32 @@ describe('parse.js', function() {
             assert.equal(p.relativeOffset, 28);
         });
     });
+
+    describe('parsePackedPointNumbers', function() {
+        it('should parse Packed "Point" Numbers', function() {
+            const countAll = '00';
+            const count8 = '32' + ' 01 01 02'.repeat(25); // 50 points
+            const count16 = '81 22' + ' 80 0004'.repeat(290); // 290 points
+
+            const pAll = new Parser(unhex(countAll), 0);
+            const p50 = new Parser(unhex(count8), 0);
+            const p290 = new Parser(unhex(count16), 0);
+
+            assert.deepEqual(pAll.parsePackedPointNumbers(1), []);
+            assert.deepEqual(p50.parsePackedPointNumbers(76), [
+                1, 3, 4, 6, 7, 9, 10, 12, 13, 15,
+                16, 18, 19, 21, 22, 24, 25, 27, 28, 30,
+                31, 33, 34, 36, 37, 39, 40, 42, 43, 45,
+                46, 48, 49, 51, 52, 54, 55, 57, 58, 60,
+                61, 63, 64, 66, 67, 69, 70, 72, 73, 75
+            ]);
+            assert.deepEqual(p290.parsePackedPointNumbers(872), Array.from({length: 290}, (_, i) => (i + 1) * 4) );
+        });
+    });
+
+    describe('parsePackedDeltas', function() {
+        it('should parse Packed Deltas', function() {
+
+        });
+    });
 });

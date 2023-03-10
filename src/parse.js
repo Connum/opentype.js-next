@@ -92,8 +92,18 @@ const typeOffsets = {
 };
 
 const masks = {
+    // delta sets
     LONG_WORDS: 0x8000,
-    WORD_DELTA_COUNT_MASK: 0x7FFF
+    WORD_DELTA_COUNT_MASK: 0x7FFF,
+
+    // Packed "Point" Numbers
+    POINTS_ARE_WORDS: 0x80,
+    POINT_RUN_COUNT_MASK: 0x7F,
+
+    // Packed Deltas
+    DELTAS_ARE_ZERO: 0x80,
+    DELTAS_ARE_WORDS: 0x40,
+    DELTA_RUN_COUNT_MASK: 0x3F
 };
 
 // A stateful parser that changes the offset whenever a value is retrieved.
@@ -521,6 +531,61 @@ Parser.prototype.parseClassDef = function() {
         format: format
     };
 };
+
+// Parse Packed "Point" Numbers 
+// https://learn.microsoft.com/en-us/typography/opentype/spec/otvarcommonformats#packed-point-numbers
+Parser.prototype.parsePackedPointNumbers = function(dataSize) {
+    check.argument(dataSize, 'dataSize has to be provided to prevent endless loops');
+
+    const points = [];
+    const firstCountByte = this.parseByte();
+    let count;
+
+    console.log('firstCountByte', firstCountByte.toString(16), firstCountByte);
+
+    const endOffset = this.relativeOffset + dataSize;
+
+    if( firstCountByte > 0 ) {
+        if ( firstCountByte > 127 ) {
+            this.relativeOffset--;
+            const bothCountBytes = this.parseUShort();
+            count = bothCountBytes & 0x7FFF;
+            console.log('bothCountBytes', bothCountBytes.toString(16), bothCountBytes);
+        } else {
+            count = firstCountByte;
+        }
+        console.log('count', count.toString(16), count);
+
+        for(let run = 0; points.length < count && this.relativeOffset < endOffset; run++) {
+            const controlByte = this.parseByte();
+            console.log('controlByte', controlByte.toString(16), controlByte);
+            const pointRunCount = (controlByte & masks.POINT_RUN_COUNT_MASK) + 1;
+            console.log('pointRunCount', pointRunCount.toString(16), pointRunCount);
+            
+            const pointParser = (controlByte & masks.POINTS_ARE_WORDS ? 'parseUShort' : 'parseByte');
+
+            for (let p = 0; p < pointRunCount && points.length < count && this.relativeOffset < endOffset; p++) {
+                const pointNumberDelta = this[pointParser]();
+                console.log('pointNumberDelta', pointNumberDelta.toString(16), pointNumberDelta);
+                if (!points.length) {
+                    points.push(pointNumberDelta);
+                } else {
+                    points.push(points[points.length - 1] + pointNumberDelta);
+                }
+            }
+
+        }
+    }
+
+    return points;
+};
+
+// Parse Packed Deltas
+// https://learn.microsoft.com/en-us/typography/opentype/spec/otvarcommonformats#packed-deltas
+Parser.prototype.parsePackedDeltas = function() {
+    
+};
+
 
 ///// Static methods ///////////////////////////////////
 // These convenience methods can be used as callbacks and should be called with "this" context set to a Parser instance.
