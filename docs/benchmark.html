@@ -39,7 +39,7 @@
     const form = document.forms.demo;
     const fontFileName = 'fonts/FiraSansMedium.woff';
     const npm = await fetch('https://api.cdnjs.com/libraries/opentype.js').then(r => r.json());
-    const git_option = el('option', { innerText: 'local', value: '/dist/opentype.js' });
+    const git_option = el('option', { innerText: 'local', value: '/dist/opentype.module.js' });
     const local_option = el('option', { innerText: 'master', value: 'https://opentype.js.org/dist/opentype.js' });
     const cdn_options = npm.versions.map(v => el('option', { innerText: v, value: `https://unpkg.com/opentype.js@${v}/dist/opentype.js` })).reverse();
     form.base.replaceChildren(git_option, ...cdn_options);
@@ -50,7 +50,21 @@
         target.disabled = false;
     }
     async function importScript(url, { as }) {
-        const injectScript = (src) => new Promise((onload, onerror) => document.head.appendChild(el('script', { src, onload, onerror })))
+        const injectScript = (src) => new Promise((onload, onerror) => {
+            const props = { onload, onerror };
+            const isModule = src.endsWith('.module.js');
+            if ( isModule ) {
+                props.type = 'module';
+            } else {
+                props.src = src;
+            }
+            const scriptTag = el('script', props);
+            if ( isModule ) {
+                scriptTag.textContent = `import * as opentype from "${url}";window['${url}'] = window['${as}'] = window.opentype = opentype;`;
+                onload();
+            }
+            document.head.appendChild(scriptTag);
+        });
         if (!document.head.querySelector(`script[src="${url}"]`)) {
             console.log('injecting...', as, url, window[as]);
             await injectScript(url);
@@ -85,7 +99,7 @@
                     }
                     const end = performance.now();
                     results.push(end - start);
-                    form.message.innerText += `[${burst}/${burst_count}] ${type} took ${end - start}ms\n`;
+                    form.message.innerText += `[${burst + 1}/${burst_count}] ${type} took ${end - start}ms\n`;
                     await new Promise(r => setTimeout(r, 100)); // give HMI some rest
                 }
                 const average = results.reduce((a, b) => a + b, 0) / results.length;
