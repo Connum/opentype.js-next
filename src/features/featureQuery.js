@@ -476,13 +476,26 @@ FeatureQuery.prototype.getLookupByIndex = function (index) {
     return lookups[index] || null;
 };
 
+// memoize feature lookups using WeakMap if available
+const featureLookupCache = typeof WeakMap === 'function' && new WeakMap();
+
 /**
  * Get lookup tables for a feature
  * @param {string} feature
  */
 FeatureQuery.prototype.getFeatureLookups = function (feature) {
-    // TODO: memoize
-    return feature.lookupListIndexes.map(this.getLookupByIndex.bind(this));
+    if ( featureLookupCache ) {
+        const cachedLookups = featureLookupCache.get(feature);
+        if (cachedLookups !== undefined) {
+            return cachedLookups;
+        }
+    }
+
+    const lookups = feature.lookupListIndexes.map(this.getLookupByIndex.bind(this));
+    if ( featureLookupCache ) {
+        featureLookupCache.set(feature, lookups);
+    }
+    return lookups;
 };
 
 /**
