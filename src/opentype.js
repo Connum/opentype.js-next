@@ -197,7 +197,7 @@ function uncompressTable(data, tableEntry) {
         const outBuffer = new Uint8Array(tableEntry.length);
         inflate(inBuffer, outBuffer);
         if (outBuffer.byteLength !== tableEntry.length) {
-            throw new Error('Decompression error: ' + tableEntry.tag + ' decompressed length doesn\'t match recorded length');
+            font.validation.addMessage('Decompression error: ' + tableEntry.tag + ' decompressed length doesn\'t match recorded length');
         }
 
         const view = new DataView(outBuffer.buffer, 0);
@@ -249,16 +249,18 @@ function parseBuffer(buffer, opt={}) {
         } else if (flavor === 'OTTO') {
             font.outlinesFormat = 'cff';
         } else {
-            throw new Error('Unsupported OpenType flavor ' + signature);
+            font.validation.addMessage('Unsupported OpenType flavor ' + signature);
         }
 
         numTables = parse.getUShort(data, 12);
         tableEntries = parseWOFFTableEntries(data, numTables);
     } else if (signature === 'wOF2') {
         var issue = 'https://github.com/opentypejs/opentype.js/issues/183#issuecomment-1147228025';
-        throw new Error('WOFF2 require an external decompressor library, see examples at: ' + issue);
+        font.validation.addMessage('WOFF2 require an external decompressor library, see examples at: ' + issue);
+    } else if (signature.substring(0,2) === '%!') {
+        font.validation.addMessage('PostScript/PS1/T1/Adobe Type 1 fonts are not supported');
     } else {
-        throw new Error('Unsupported OpenType signature ' + signature);
+        font.validation.addMessage('Unsupported OpenType signature ' + signature);
     }
 
     let cffTableEntry;
@@ -410,12 +412,17 @@ function parseBuffer(buffer, opt={}) {
         const cffTable2 = uncompressTable(data, cff2TableEntry);
         cff.parse(cffTable2.data, cffTable2.offset, font, opt);
     } else {
-        throw new Error('Font doesn\'t contain TrueType, CFF or CFF2 outlines.');
+        font.validation.addMessage('Font doesn\'t contain TrueType, CFF or CFF2 outlines.');
     }
 
     const hmtxTable = uncompressTable(data, hmtxTableEntry);
     hmtx.parse(font, hmtxTable.data, hmtxTable.offset, font.numberOfHMetrics, font.numGlyphs, font.glyphs, opt);
-    addGlyphNames(font, opt);
+    
+    if (!font.tables.cmap) {
+        font.validation.addMessage('Font doesn\'t contain required cmap table');
+    } else {
+        addGlyphNames(font, opt);
+    }
 
     if (kernTableEntry) {
         const kernTable = uncompressTable(data, kernTableEntry);
