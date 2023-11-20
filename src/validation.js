@@ -1,5 +1,12 @@
 import { isBrowser } from './util.js';
 
+/**
+ * @typedef {number} ErrorTypes
+ */
+
+/**
+ * @enum {ErrorTypes}
+ */
 const errorTypes = {
     ERROR: 1,
     WARNING: 2,
@@ -7,6 +14,9 @@ const errorTypes = {
     ALL: 32767
 };
 
+/**
+ * @enum {ErrorStrings}
+ */
 const errorStrings = {
     1: 'ERROR',
     2: 'WARNING',
@@ -19,6 +29,10 @@ const logMethods = {
     4: 'info'
 };
 
+/**
+ * @property {string} message - message string
+ * @property {keyof ErrorTypes} type - error type
+ */
 class Message {
     string;
     type;
@@ -37,11 +51,15 @@ class Message {
         return errorStrings[this.type] + ': ' + this.string;
     }
 }
-
-
+/**
+ * @property {keyof ErrorTypes} errorTypes
+ */
 class MessageStack {
     #logLevel = errorTypes.ALL;
+    #throwLevel = errorTypes.ERROR;
     #messageStack = [];
+
+    errorTypes = errorTypes;
 
     constructor() {
         Object.defineProperty(this, "errorTypes", {
@@ -52,9 +70,12 @@ class MessageStack {
         });
     }
 
+    /**
+     * adds a message to the message stack
+     * @property {keyof ErrorTypes} errorTypes
+     */
     addMessage(string, type = errorTypes.ERROR) {
         const message = new Message(string, type);
-        this.#messageStack.push(message);
         
         if (this.#logLevel & type) {
             this.logMessage(message);
@@ -70,8 +91,13 @@ class MessageStack {
     logMessage(message) {
         const type = message.type || errorTypes.ERROR;
         const logMethod = console[logMethods[type] || 'log'] || console.log;
-        logMethod('[opentype.js] ' + message.toString());
+        this.#messageStack.push(message);
+        const logMessage = '[opentype.js] ' + message.toString();
         message.logged = true;
+        if ( this.#throwLevel & type ) {
+            throw new Error(logMessage);
+        }
+        logMethod(logMessage);
     }
     
     getMessages() {
@@ -89,7 +115,17 @@ class MessageStack {
     resetMessages() {
         this.#messageStack.length = 0;
     }
+
+    setLogLevel(newLevel) {
+        this.#logLevel = newLevel;
+    }
+
+    setThrowLevel(newLevel) {
+        this.#throwLevel = newLevel;
+    }
     
 }
 
-export default { errorTypes, MessageStack };
+const globalMessageStack = new MessageStack();
+
+export default { errorTypes, MessageStack, messageStack: globalMessageStack };
