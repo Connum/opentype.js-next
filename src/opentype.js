@@ -35,6 +35,7 @@ import os2 from './tables/os2.js';
 import post from './tables/post.js';
 import meta from './tables/meta.js';
 import gasp from './tables/gasp.js';
+import { createDefaultNamesInfo } from './font.js';
 /**
  * The opentype library.
  * @namespace opentype
@@ -187,11 +188,16 @@ function parseWOFFTableEntries(data, numTables) {
  */
 
 /**
+ * @param  {Font}
  * @param  {DataView}
  * @param  {Object}
  * @return {TableData}
  */
-function uncompressTable(data, tableEntry) {
+function uncompressTable(font, data, tableEntry) {
+    if (!tableEntry) {
+        console.trace();
+    }
+    
     if (tableEntry.compression === 'WOFF') {
         const inBuffer = new Uint8Array(data.buffer, tableEntry.offset + 2, tableEntry.compressedLength - 2);
         const outBuffer = new Uint8Array(tableEntry.length);
@@ -288,12 +294,12 @@ function parseBuffer(buffer, opt={}) {
                 avarTableEntry = tableEntry;
                 break;
             case 'cmap':
-                table = uncompressTable(data, tableEntry);
+                table = uncompressTable(font, data, tableEntry);
                 font.tables.cmap = cmap.parse(table.data, table.offset);
                 font.encoding = new CmapEncoding(font.tables.cmap);
                 break;
             case 'cvt ' :
-                table = uncompressTable(data, tableEntry);
+                table = uncompressTable(font, data, tableEntry);
                 p = new parse.Parser(table.data, table.offset);
                 font.tables.cvt = p.parseShortList(tableEntry.length / 2);
                 break;
@@ -307,18 +313,18 @@ function parseBuffer(buffer, opt={}) {
                 gvarTableEntry = tableEntry;
                 break;
             case 'fpgm' :
-                table = uncompressTable(data, tableEntry);
+                table = uncompressTable(font, data, tableEntry);
                 p = new parse.Parser(table.data, table.offset);
                 font.tables.fpgm = p.parseByteList(tableEntry.length);
                 break;
             case 'head':
-                table = uncompressTable(data, tableEntry);
+                table = uncompressTable(font, data, tableEntry);
                 font.tables.head = head.parse(table.data, table.offset);
                 font.unitsPerEm = font.tables.head.unitsPerEm;
                 indexToLocFormat = font.tables.head.indexToLocFormat;
                 break;
             case 'hhea':
-                table = uncompressTable(data, tableEntry);
+                table = uncompressTable(font, data, tableEntry);
                 font.tables.hhea = hhea.parse(table.data, table.offset);
                 font.ascender = font.tables.hhea.ascender;
                 font.descender = font.tables.hhea.descender;
@@ -328,19 +334,19 @@ function parseBuffer(buffer, opt={}) {
                 hmtxTableEntry = tableEntry;
                 break;
             case 'ltag':
-                table = uncompressTable(data, tableEntry);
+                table = uncompressTable(font, data, tableEntry);
                 ltagTable = ltag.parse(table.data, table.offset);
                 break;
             case 'COLR':
-                table = uncompressTable(data, tableEntry);
+                table = uncompressTable(font, data, tableEntry);
                 font.tables.colr = colr.parse(table.data, table.offset);
                 break;
             case 'CPAL':
-                table = uncompressTable(data, tableEntry);
+                table = uncompressTable(font, data, tableEntry);
                 font.tables.cpal = cpal.parse(table.data, table.offset);
                 break;
             case 'maxp':
-                table = uncompressTable(data, tableEntry);
+                table = uncompressTable(font, data, tableEntry);
                 font.tables.maxp = maxp.parse(table.data, table.offset);
                 font.numGlyphs = font.tables.maxp.numGlyphs;
                 break;
@@ -348,16 +354,16 @@ function parseBuffer(buffer, opt={}) {
                 nameTableEntry = tableEntry;
                 break;
             case 'OS/2':
-                table = uncompressTable(data, tableEntry);
+                table = uncompressTable(font, data, tableEntry);
                 font.tables.os2 = os2.parse(table.data, table.offset);
                 break;
             case 'post':
-                table = uncompressTable(data, tableEntry);
+                table = uncompressTable(font, data, tableEntry);
                 font.tables.post = post.parse(table.data, table.offset);
                 font.glyphNames = new GlyphNames(font.tables.post);
                 break;
             case 'prep' :
-                table = uncompressTable(data, tableEntry);
+                table = uncompressTable(font, data, tableEntry);
                 p = new parse.Parser(table.data, table.offset);
                 font.tables.prep = p.parseByteList(tableEntry.length);
                 break;
@@ -389,71 +395,81 @@ function parseBuffer(buffer, opt={}) {
                 metaTableEntry = tableEntry;
                 break;
             case 'gasp':
-                table = uncompressTable(data, tableEntry);
+                table = uncompressTable(font, data, tableEntry);
                 font.tables.gasp = gasp.parse(table.data, table.offset);
                 break;
         }
     }
 
-    const nameTable = uncompressTable(data, nameTableEntry);
-    font.tables.name = _name.parse(nameTable.data, nameTable.offset, ltagTable);
-    font.names = font.tables.name;
+    if ( nameTableEntry ) {
+        const nameTable = uncompressTable(font, data, nameTableEntry);
+        font.tables.name = _name.parse(nameTable.data, nameTable.offset, ltagTable);
+        font.names = font.tables.name;
+    } else {
+        font.validation.addMessage('Font doesn\'t contain required name table', font.validation.errorTypes.WARNING);
+        font.names = {};
+        font.names.unicode = createDefaultNamesInfo({});
+        font.names.macintosh = createDefaultNamesInfo({});
+        font.names.windows = createDefaultNamesInfo({});
+    }
 
     if (glyfTableEntry && locaTableEntry) {
         const shortVersion = indexToLocFormat === 0;
-        const locaTable = uncompressTable(data, locaTableEntry);
+        const locaTable = uncompressTable(font, data, locaTableEntry);
         const locaOffsets = loca.parse(locaTable.data, locaTable.offset, font.numGlyphs, shortVersion);
-        const glyfTable = uncompressTable(data, glyfTableEntry);
+        const glyfTable = uncompressTable(font, data, glyfTableEntry);
         font.glyphs = glyf.parse(glyfTable.data, glyfTable.offset, locaOffsets, font, opt);
     } else if (cffTableEntry) {
-        const cffTable = uncompressTable(data, cffTableEntry);
+        const cffTable = uncompressTable(font, data, cffTableEntry);
         cff.parse(cffTable.data, cffTable.offset, font, opt);
     } else if (cff2TableEntry) {
-        const cffTable2 = uncompressTable(data, cff2TableEntry);
+        const cffTable2 = uncompressTable(font, data, cff2TableEntry);
         cff.parse(cffTable2.data, cffTable2.offset, font, opt);
     } else {
         font.validation.addMessage('Font doesn\'t contain TrueType, CFF or CFF2 outlines.');
     }
 
-    const hmtxTable = uncompressTable(data, hmtxTableEntry);
-    hmtx.parse(font, hmtxTable.data, hmtxTable.offset, font.numberOfHMetrics, font.numGlyphs, font.glyphs, opt);
+    if (hmtxTableEntry) {
+        const hmtxTable = uncompressTable(font, data, hmtxTableEntry);
+        hmtx.parse(font, hmtxTable.data, hmtxTable.offset, font.numberOfHMetrics, font.numGlyphs, font.glyphs, opt);
+    }
     
     if (!font.tables.cmap) {
-        font.validation.addMessage('Font doesn\'t contain required cmap table');
+        font.validation.addMessage('Font doesn\'t contain required cmap table', font.validation.errorTypes.WARNING);
     } else {
         addGlyphNames(font, opt);
     }
 
     if (kernTableEntry) {
-        const kernTable = uncompressTable(data, kernTableEntry);
+        const kernTable = uncompressTable(font, data, kernTableEntry);
         font.kerningPairs = kern.parse(kernTable.data, kernTable.offset);
     } else {
         font.kerningPairs = {};
     }
 
     if (gdefTableEntry) {
-        const gdefTable = uncompressTable(data, gdefTableEntry);
+        const gdefTable = uncompressTable(font, data, gdefTableEntry);
         font.tables.gdef = gdef.parse(gdefTable.data, gdefTable.offset);
     }
 
     if (gposTableEntry) {
-        const gposTable = uncompressTable(data, gposTableEntry);
+        const gposTable = uncompressTable(font, data, gposTableEntry);
         font.tables.gpos = gpos.parse(gposTable.data, gposTable.offset);
         font.position.init();
     }
 
     if (gsubTableEntry) {
-        const gsubTable = uncompressTable(data, gsubTableEntry);
+        const gsubTable = uncompressTable(font, data, gsubTableEntry);
         font.tables.gsub = gsub.parse(gsubTable.data, gsubTable.offset);
     }
 
     if (fvarTableEntry) {
-        const fvarTable = uncompressTable(data, fvarTableEntry);
+        const fvarTable = uncompressTable(font, data, fvarTableEntry);
         font.tables.fvar = fvar.parse(fvarTable.data, fvarTable.offset, font.names);
     }
 
     if (statTableEntry) {
-        const statTable = uncompressTable(data, statTableEntry);
+        const statTable = uncompressTable(font, data, statTableEntry);
         font.tables.stat = stat.parse(statTable.data, statTable.offset, font.tables.fvar);
     }
 
@@ -464,7 +480,7 @@ function parseBuffer(buffer, opt={}) {
         if (!glyfTableEntry) {
             console.warn('This font provides a gvar table, but no glyf table. Glyph variation only works with TrueType outlines.');
         }
-        const gvarTable = uncompressTable(data, gvarTableEntry);
+        const gvarTable = uncompressTable(font, data, gvarTableEntry);
         font.tables.gvar = gvar.parse(gvarTable.data, gvarTable.offset, font.names);
     }
 
@@ -472,12 +488,12 @@ function parseBuffer(buffer, opt={}) {
         if (!fvarTableEntry) {
             console.warn('This font provides an avar table, but no fvar table, which is required for variable fonts.');
         }
-        const avarTable = uncompressTable(data, avarTableEntry);
+        const avarTable = uncompressTable(font, data, avarTableEntry);
         font.tables.avar = avar.parse(avarTable.data, avarTable.offset, font.tables.fvar);
     }
 
     if (metaTableEntry) {
-        const metaTable = uncompressTable(data, metaTableEntry);
+        const metaTable = uncompressTable(font, data, metaTableEntry);
         font.tables.meta = meta.parse(metaTable.data, metaTable.offset);
         font.metas = font.tables.meta;
     }

@@ -92,11 +92,23 @@ function showErrorMessage(message) {
     var el = document.getElementById('message');
     if (!message || message.trim().length === 0) {
         el.style.display = 'none';
+        el.innerHTML = '';
     } else {
         el.style.display = 'block';
+        el.innerHTML = `<p class="message-type-1">${message}</p>`;
     }
-    el.innerHTML = message;
 }
+
+function appendErrorMessage(message, type) {
+    var el = document.getElementById('message');
+    el.style.display = 'block';
+    el.innerHTML += `<p class="message-type-${type}">${message}</p>`;
+}
+
+document.addEventListener('opentypejs:message', function(event) {
+    const message = event.detail.message;
+    appendErrorMessage(message.toString(), message.type);
+});
 
 function pathCommandToString(cmd) {
     var str = '<strong>' + cmd.type + '</strong> ' +
@@ -335,8 +347,8 @@ function initGlyphDisplay(font) {
     hline('yMin', font.tables.head.yMin);
     hline('Ascender', font.tables.hhea.ascender);
     hline('Descender', font.tables.hhea.descender);
-    hline('Typo Ascender', font.tables.os2.sTypoAscender);
-    hline('Typo Descender', font.tables.os2.sTypoDescender);
+    hline('Typo Ascender', (font.tables.os2 || {}).sTypoAscender);
+    hline('Typo Descender', (font.tables.os2 || {}).sTypoDescender);
 }
 
 function onFontLoaded(font) {
@@ -410,10 +422,11 @@ async function display(file, name) {
     }
     try {
         const data = await file.arrayBuffer();
-        onFontLoaded(opentype.parse(isWoff2 ? Module.decompress(data) : data));
         showErrorMessage('');
+        onFontLoaded(opentype.parse(isWoff2 ? Module.decompress(data) : data));
     } catch (err) {
         showErrorMessage(err.toString());
+        throw err;
     }
 }
 
