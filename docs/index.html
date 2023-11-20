@@ -220,6 +220,7 @@ async function display(file, name) {
         onFontLoaded(opentype.parse(isWoff2 ? Module.decompress(data) : data));
         showErrorMessage('');
     } catch (err) {
+        throw err;
         showErrorMessage(err.toString());
     }
 }

@@ -9,6 +9,7 @@ import Substitution from './substitution.js';
 import { isBrowser, checkArgument } from './util.js';
 import HintingTrueType from './hintingtt.js';
 import Bidi from './bidi.js';
+import validation from './validation.js';
 
 function createDefaultNamesInfo(options) {
     return {
@@ -503,13 +504,14 @@ Font.prototype.getEnglishName = function(name) {
 /**
  * Validate
  */
+Font.prototype.validation = new validation.MessageStack();
 Font.prototype.validate = function() {
-    const warnings = [];
+    const validationMessages = [];
     const _this = this;
 
     function assert(predicate, message) {
         if (!predicate) {
-            warnings.push(message);
+            validationMessages.push(_this.validation.addMessage(message, validation.errorTypes.WARNING));
         }
     }
 
@@ -528,6 +530,10 @@ Font.prototype.validate = function() {
 
     // Dimension information
     assert(this.unitsPerEm > 0, 'No unitsPerEm specified.');
+
+    this.validation.logMessages();
+    
+    return validationMessages;
 };
 
 /**
@@ -542,7 +548,7 @@ Font.prototype.toTables = function() {
  * @deprecated Font.toBuffer is deprecated. Use Font.toArrayBuffer instead.
  */
 Font.prototype.toBuffer = function() {
-    console.warn('Font.toBuffer is deprecated. Use Font.toArrayBuffer instead.');
+    this.validation.addMessage('Font.toBuffer is deprecated. Use Font.toArrayBuffer instead.', validation.errorTypes.DEPRECATED);
     return this.toArrayBuffer();
 };
 /**
@@ -585,7 +591,7 @@ Font.prototype.download = function(fileName) {
             event.initEvent('click', true, false);
             link.dispatchEvent(event);
         } else {
-            console.warn('Font file could not be downloaded. Try using a different browser.');
+            validation.addMessage('Font file could not be downloaded. Try using a different browser.');
         }
     } else {
         const fs = require('fs');
