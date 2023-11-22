@@ -7,12 +7,13 @@ import { isBrowser } from './util.js';
 /**
  * @enum {ErrorTypes}
  */
-const errorTypes = {
+const ErrorTypes = {
     ERROR: 1,
     WARNING: 2,
     DEPRECATED: 4,
     ALL: 32767
 };
+Object.freeze && Object.freeze(ErrorTypes);
 
 /**
  * @enum {ErrorStrings}
@@ -38,7 +39,7 @@ class Message {
     type;
     logged = false;
 
-    constructor(string, type = errorTypes.ERROR) {
+    constructor(string, type = ErrorTypes.ERROR) {
         if (!errorStrings[type]) {
             throw new Error( 'Invalid error type ' + type + ' for message: ' + string );
         }
@@ -52,30 +53,26 @@ class Message {
     }
 }
 /**
- * @property {keyof ErrorTypes} errorTypes
+ * @exports validation.MessageStack
  */
 class MessageStack {
-    #logLevel = errorTypes.ALL;
-    #throwLevel = errorTypes.ERROR;
+    #logLevel = ErrorTypes.ALL;
+    #throwLevel = ErrorTypes.ERROR;
     #messageStack = [];
-
-    errorTypes = errorTypes;
-
-    constructor() {
-        Object.defineProperty(this, "errorTypes", {
-            value: errorTypes,
-            writable: false,
-            enumerable: true,
-            configurable: false
-        });
-    }
 
     /**
      * adds a message to the message stack
-     * @property {keyof ErrorTypes} errorTypes
+     * @property {String|Message} string
+     * @property {keyof ErrorTypes} type
      */
-    addMessage(string, type = errorTypes.ERROR) {
-        const message = new Message(string, type);
+    addMessage(stringOrMessage, type = ErrorTypes.ERROR) {
+        let message;
+        if (stringOrMessage instanceof Message) {
+            message = stringOrMessage;
+            type = message.type;
+        } else {
+            message = new Message(stringOrMessage, type);
+        }
         
         if (this.#logLevel & type) {
             this.logMessage(message);
@@ -87,9 +84,18 @@ class MessageStack {
     
         return message;
     }
+
+    /**
+     * adds an array of messages to the stack
+     */
+    addMessages(messageArray) {
+        for (let i = 0; i < messageArray.length; i++) {
+            this.addMessage(messageArray[i]);
+        }
+    }
     
     logMessage(message) {
-        const type = message.type || errorTypes.ERROR;
+        const type = message.type || ErrorTypes.ERROR;
         const logMethod = console[logMethods[type] || 'log'] || console.log;
         this.#messageStack.push(message);
         const logMessage = '[opentype.js] ' + message.toString();
@@ -128,4 +134,4 @@ class MessageStack {
 
 const globalMessageStack = new MessageStack();
 
-export default { errorTypes, MessageStack, messageStack: globalMessageStack };
+export default { ErrorTypes, Message, MessageStack, messageStack: globalMessageStack };
