@@ -256,10 +256,8 @@ function displayGlyph(glyphIndex) {
         height = canvas.height / pixelRatio;
     ctx.clearRect(0, 0, width, height);
     if(glyphIndex < 0) return;
-    const glyph = window.font.glyphs.get(glyphIndex);
-
-    const advanceWidth = glyph.advanceWidth;
-    let glyphWidth = advanceWidth * glyphScale,
+    var glyph = window.font.glyphs.get(glyphIndex),
+        glyphWidth = glyph.advanceWidth * glyphScale,
         xmin = (width - glyphWidth)/2,
         xmax = (width + glyphWidth)/2,
         x0 = xmin,
