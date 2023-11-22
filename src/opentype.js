@@ -36,10 +36,14 @@ import post from './tables/post.js';
 import meta from './tables/meta.js';
 import gasp from './tables/gasp.js';
 import { createDefaultNamesInfo } from './font.js';
+import { sizeOf } from './types.js';
+import validation from './validation.js';
 /**
  * The opentype library.
  * @namespace opentype
  */
+
+const ErrorTypes = validation.ErrorTypes;
 
 // File loaders /////////////////////////////////////////////////////////
 /**
@@ -188,7 +192,7 @@ function parseWOFFTableEntries(data, numTables) {
  */
 
 /**
- * @param  {Font}
+ * @param  {opentype.Font}
  * @param  {DataView}
  * @param  {Object}
  * @return {TableData}
@@ -264,7 +268,14 @@ function parseBuffer(buffer, opt={}) {
         var issue = 'https://github.com/opentypejs/opentype.js/issues/183#issuecomment-1147228025';
         font.validation.addMessage('WOFF2 require an external decompressor library, see examples at: ' + issue);
     } else if (signature.substring(0,2) === '%!') {
+        // https://personal.math.ubc.ca/~cass/piscript/type1.pdf
         font.validation.addMessage('PostScript/PS1/T1/Adobe Type 1 fonts are not supported');
+    } else if (data.buffer.byteLength > (3 * sizeOf.Card8() + sizeOf.OffSize()) && parse.getByte(data, 0) === 0x01) {
+        // this could be a CFF1 file, we will try to parse it like a CCF table below
+        // https://adobe-type-tools.github.io/font-tech-notes/pdfs/5176.CFF.pdf
+        font.isCFFFont = true;
+        tableEntries.push({tag:'CFF ',offset:0});
+        numTables = 1;
     } else {
         font.validation.addMessage('Unsupported OpenType signature ' + signature);
     }
@@ -406,7 +417,6 @@ function parseBuffer(buffer, opt={}) {
         font.tables.name = _name.parse(nameTable.data, nameTable.offset, ltagTable);
         font.names = font.tables.name;
     } else {
-        font.validation.addMessage('Font doesn\'t contain required name table', font.validation.errorTypes.WARNING);
         font.names = {};
         font.names.unicode = createDefaultNamesInfo({});
         font.names.macintosh = createDefaultNamesInfo({});
@@ -435,7 +445,9 @@ function parseBuffer(buffer, opt={}) {
     }
     
     if (!font.tables.cmap) {
-        font.validation.addMessage('Font doesn\'t contain required cmap table', font.validation.errorTypes.WARNING);
+        if (!font.isCFFFont) {
+            font.validation.addMessage('Font doesn\'t contain required cmap table', ErrorTypes.WARNING);
+        }
     } else {
         addGlyphNames(font, opt);
     }
@@ -563,5 +575,6 @@ export {
     parse as _parse,
     parseBuffer as parse,
     load,
-    loadSync
+    loadSync,
+    ErrorTypes
 };

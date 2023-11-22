@@ -73,7 +73,7 @@ sizeOf.CHAR = constant(1);
 encode.CHARARRAY = function(v) {
     if (v == null) { // catches undefined and null
         v = '';
-        validation.messageStack.addMessage('Undefined CHARARRAY encountered and treated as an empty string. This is probably caused by a missing glyph name.', validation.errorTypes.WARNING);
+        validation.messageStack.addMessage('Undefined CHARARRAY encountered and treated as an empty string. This is probably caused by a missing glyph name.', validation.ErrorTypes.WARNING);
     }
     const b = [];
     for (let i = 0; i < v.length; i += 1) {
@@ -184,7 +184,7 @@ sizeOf.LONG = constant(4);
  */
 encode.FLOAT = function(v) {
     if (v > MAX_16_16 || v < MIN_16_16) {
-        validation.messageStack.addMessage(`Value ${v} is outside the range of representable values in 16.16 format`, validation.errorTypes.ERROR);
+        validation.messageStack.addMessage(`Value ${v} is outside the range of representable values in 16.16 format`, validation.ErrorTypes.ERROR);
     }
     const fixedValue = Math.round(v * (1 << 16)) << 0; // Round to nearest multiple of 1/(1<<16)
     return encode.ULONG(fixedValue);
@@ -857,7 +857,7 @@ encode.OPERAND = function(v, type) {
                 d.push(enc1[j]);
             }
         } else {
-            validation.messageStack.addMessage('Unknown operand type ' + type, validation.errorTypes.ERROR);
+            validation.messageStack.addMessage('Unknown operand type ' + type, validation.ErrorTypes.ERROR);
             // FIXME Add support for booleans
         }
     }

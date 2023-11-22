@@ -72,6 +72,14 @@ function Font(options) {
     options = options || {};
     options.tables = options.tables || {};
 
+    if (options.logLevel) {
+        this.validation.setLogLevel(options.logLevel);
+    }
+
+    if (options.throwLevel) {
+        this.validation.setThrowLevel(options.throwLevel);
+    }
+
     if (!options.empty) {
         // Check that we've provided the minimum set of names.
         checkArgument(options.familyName, 'When creating a new Font object, familyName is required.');
@@ -503,15 +511,17 @@ Font.prototype.getEnglishName = function(name) {
 
 /**
  * Validate
+ * @type {validation.MessageStack}
  */
 Font.prototype.validation = new validation.MessageStack();
+Font.prototype.ErrorTypes = validation.ErrorTypes;
 Font.prototype.validate = function() {
     const validationMessages = [];
     const _this = this;
 
     function assert(predicate, message) {
         if (!predicate) {
-            validationMessages.push(_this.validation.addMessage(message, validation.errorTypes.WARNING));
+            validationMessages.push(_this.validation.addMessage(message, _this.ErrorTypes.WARNING));
         }
     }
 
@@ -548,7 +558,7 @@ Font.prototype.toTables = function() {
  * @deprecated Font.toBuffer is deprecated. Use Font.toArrayBuffer instead.
  */
 Font.prototype.toBuffer = function() {
-    this.validation.addMessage('Font.toBuffer is deprecated. Use Font.toArrayBuffer instead.', validation.errorTypes.DEPRECATED);
+    this.validation.addMessage('Font.toBuffer is deprecated. Use Font.toArrayBuffer instead.', this.ErrorTypes.DEPRECATED);
     return this.toArrayBuffer();
 };
 /**
