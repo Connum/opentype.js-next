@@ -40,6 +40,15 @@ function getFixed(dataView, offset) {
 // Retrieve a string with a specific byte length from the DataView.
 function getString(dataView, offset, length) {
     let string = '';
+    
+    if (!offset) {
+        offset = 0;
+    }
+
+    if (length === undefined) {
+        length = dataView.byteLength - offset;
+    }
+
     for (let i = offset; i < offset + length; i += 1) {
         string += String.fromCharCode(dataView.getInt8(i));
     }

@@ -362,9 +362,9 @@ function initGlyphDisplay(font) {
 function getFontDimensions(font) {
     return font.isCFFFont ? {
         xMin: font.tables.cff.topDict.fontBBox[0],
-        xMax: font.tables.cff.topDict.fontBBox[3],
-        yMin: font.tables.cff.topDict.fontBBox[1],
-        yMax: font.tables.cff.topDict.fontBBox[2]
+        xMax: font.tables.cff.topDict.fontBBox[3] || 1000,
+        yMin: font.tables.cff.topDict.fontBBox[1] || -200,
+        yMax: font.tables.cff.topDict.fontBBox[2] || 1000
     } :font.tables.head;
 }
 
