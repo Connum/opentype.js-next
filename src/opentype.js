@@ -266,6 +266,7 @@ function parseBuffer(buffer, opt={}) {
         var issue = 'https://github.com/opentypejs/opentype.js/issues/183#issuecomment-1147228025';
         logger.addMessage('WOFF2 require an external decompressor library, see examples at: ' + issue);
     } else if (signature.substring(0,2) === '%!') {
+        // https://adobe-type-tools.github.io/font-tech-notes/pdfs/T1_SPEC.pdf
         // https://personal.math.ubc.ca/~cass/piscript/type1.pdf
         logger.addMessage('PostScript/PS1/T1/Adobe Type 1 fonts are not supported');
     } else if (data.buffer.byteLength > (3 * sizeOf.Card8() + sizeOf.OffSize()) && parse.getByte(data, 0) === 0x01) {
