@@ -1287,12 +1287,12 @@ function parseCFFTable(data, start, font, opt) {
     if (opt.lowMemory) {
         font._push = function(i) {
             const charString = getCffIndexObject(i, charStringsIndex.offsets, data, start + topDict.charStrings, undefined, header.formatMajor);
-            font.glyphs.push(i, glyphset.cffGlyphLoader(font, i, parseCFFCharstring, charString, header.formatMajor));
+            font.glyphs.push(i, glyphset.cffGlyphLoader(font, i, charString, header.formatMajor));
         };
     } else {
         for (let i = 0; i < font.nGlyphs; i += 1) {
             const charString = charStringsIndex.objects[i];
-            font.glyphs.push(i, glyphset.cffGlyphLoader(font, i, parseCFFCharstring, charString, header.formatMajor));
+            font.glyphs.push(i, glyphset.cffGlyphLoader(font, i, charString, header.formatMajor));
         }
     }
 
@@ -1610,4 +1610,4 @@ function makeCFFTable(glyphs, options,) {
     return t;
 }
 
-export default { parse: parseCFFTable, make: makeCFFTable };
+export default { parse: parseCFFTable, make: makeCFFTable, parseCFFCharstring, calcCFFSubroutineBias };

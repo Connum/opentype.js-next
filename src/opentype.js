@@ -38,6 +38,9 @@ import gasp from './tables/gasp.js';
 import { createDefaultNamesInfo } from './font.js';
 import { sizeOf } from './types.js';
 import validation from './validation.js';
+import glyphset from './glyphset.js';
+import { Type1Parser } from 'pdf.js/src/core/type1_parser.js';
+import { Stream } from 'pdf.js/src/core/stream.js';
 /**
  * The opentype library.
  * @namespace opentype
@@ -268,8 +271,139 @@ function parseBuffer(buffer, opt={}) {
         var issue = 'https://github.com/opentypejs/opentype.js/issues/183#issuecomment-1147228025';
         font.validation.addMessage('WOFF2 require an external decompressor library, see examples at: ' + issue);
     } else if (signature.substring(0,2) === '%!') {
+        // https://adobe-type-tools.github.io/font-tech-notes/pdfs/T1_SPEC.pdf
         // https://personal.math.ubc.ca/~cass/piscript/type1.pdf
-        font.validation.addMessage('PostScript/PS1/T1/Adobe Type 1 fonts are not supported');
+        
+        function findEexecPosition(dataView) {
+            const sequence = [0x65, 0x65, 0x78, 0x65, 0x63]; // "eexec"
+            for (let i = 0; i < dataView.byteLength - sequence.length + 1; i++) {
+              let match = true;
+              for (let j = 0; j < sequence.length; j++) {
+                if (dataView.getUint8(i + j) !== sequence[j]) {
+                  match = false;
+                  break;
+                }
+              }
+              if (match) {
+                return i;
+              }
+            }
+            return -1;
+        }
+
+        function extractExtendedHeader(properties) {
+            console.log('extractExtendedHeader', this.stream, this.getToken());
+            let token;
+            let skippedToken;
+            let prevToken;
+            while ((token = this.getToken()) !== null) {
+                if (token !== "/") {
+                    skippedToken = token;
+                    continue;
+                }
+
+                token = this.getToken();
+
+                if(skippedToken === undefined && !properties.postScriptName) {
+                    properties.postScriptName = token;
+                } else if(prevToken === 'FontName') {
+                    properties.fullName = token;
+                } else switch (token) {
+                    case "FontBBox":
+                      properties.fontBBox = this.readNumberArray();
+                      break;
+                }
+                prevToken = token;
+            }        
+        }
+
+        const eexecDelimiter = findEexecPosition(data);
+        
+        if ( eexecDelimiter > -1 ) {
+            const delimiterEnd = eexecDelimiter + 5;
+            const fontHeader = new Stream(data.buffer, 0, delimiterEnd, {});
+            const fontData = new Stream(data.buffer, delimiterEnd + 1, undefined, {});
+
+            const fontHeaderParser = new Type1Parser(
+                fontHeader,
+                false,
+                true
+            );
+            const extendedHeaderParser = new Type1Parser(
+                fontHeader,
+                false,
+                true
+            );
+            const fontDataParser = new Type1Parser(
+                fontData,
+                true,
+                true
+            );
+
+            const properties = {
+                widths: []
+            };
+            
+            fontHeaderParser.extractFontHeader(properties);
+            extendedHeaderParser.stream.reset();
+            extractExtendedHeader.call(extendedHeaderParser, properties);
+            
+            const glyphData = fontDataParser.extractFontProgram(properties);
+
+            numTables = 0;
+
+            font.handledByPlugin = true;
+            font.outlinesFormat = 'cff';
+            font.isCFFFont = true;
+            font.nGlyphs = glyphData.charstrings.length;
+            const fMatrix = properties.fontMatrix || [0.001, 0, 0, 0.001, 0, 0];
+            const bBox = properties.fontBBox || [0,0,0,0];
+            
+            font.tables.cff = {
+                topDict: {
+                    _defaultWidthX: 0,
+                    _nominalWidthX: 0,
+                    fontBBox: bBox,
+                    fontMatrix: fMatrix
+                }
+            };
+
+            font.ascender = properties.ascend || bBox && bBox.length > 2 && bBox[2] || 0;
+            font.descender = properties.descend || bBox && bBox.length > 1 && bBox[1] || -200;
+            font.unitsPerEm = fMatrix && fMatrix.length && (1/fMatrix[0]) || 1000;
+
+            font.gsubrs = glyphData.subrs;
+            font.gsubrsBias = cff.calcCFFSubroutineBias(font.gsubrs);
+
+            font.glyphs = new glyphset.GlyphSet(font);
+            const glyphLoader = function(font, i, glyphName, charString) {
+                return function() {
+                    const glyph = glyphset.cffGlyphLoader(font, i, charString, 1)();
+                    glyph.name = glyphName;
+                    return glyph;
+                };
+            };
+            if (opt.lowMemory) {
+                font._push = function(i) {
+                    const charString = glyphData.charstrings[i].charstring;
+                    const glyphName = glyphData.charstrings[i].glyphName;
+                    font.glyphs.push(i, glyphLoader(font, i, glyphName, charString));
+                };
+            } else {
+                for (let i = 0; i < font.nGlyphs; i += 1) {
+                    const charString = glyphData.charstrings[i].charstring;
+                    const glyphName = glyphData.charstrings[i].glyphName;
+                    font.glyphs.push(i, glyphLoader(font, i, glyphName, charString));
+                }
+            }
+
+            // const dict = {};
+            // const stream = new Stream(data.buffer, 0, undefined, dict);
+            // console.log(new Type1Font('OpentypeJSPluginType1TempFont', stream, properties));
+        } else {
+            font.validation.addMessage('Type 1 font is missing eexec comand or binary data');
+        }
+        // font.validation.addMessage('PostScript/PS1/T1/Adobe Type 1 fonts are not supported');
     } else if (data.buffer.byteLength > (3 * sizeOf.Card8() + sizeOf.OffSize()) && parse.getByte(data, 0) === 0x01) {
         // this could be a CFF1 file, we will try to parse it like a CCF table below
         // https://adobe-type-tools.github.io/font-tech-notes/pdfs/5176.CFF.pdf
@@ -435,8 +569,8 @@ function parseBuffer(buffer, opt={}) {
     } else if (cff2TableEntry) {
         const cffTable2 = uncompressTable(font, data, cff2TableEntry);
         cff.parse(cffTable2.data, cffTable2.offset, font, opt);
-    } else {
-        font.validation.addMessage('Font doesn\'t contain TrueType, CFF or CFF2 outlines.');
+    } else if(!font.handledByPlugin) {
+        font.validation.addMessage('Font doesn\'t contain TrueType, CFF or CFF2 outlines.', validation.ErrorTypes.WARNING);
     }
 
     if (hmtxTableEntry) {
