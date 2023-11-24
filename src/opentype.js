@@ -37,13 +37,11 @@ import meta from './tables/meta.js';
 import gasp from './tables/gasp.js';
 import { createDefaultNamesInfo } from './font.js';
 import { sizeOf } from './types.js';
-import validation from './validation.js';
+import { ErrorTypes, logger } from './logger.js';
 /**
  * The opentype library.
  * @namespace opentype
  */
-
-const ErrorTypes = validation.ErrorTypes;
 
 // File loaders /////////////////////////////////////////////////////////
 /**
@@ -207,7 +205,7 @@ function uncompressTable(font, data, tableEntry) {
         const outBuffer = new Uint8Array(tableEntry.length);
         inflate(inBuffer, outBuffer);
         if (outBuffer.byteLength !== tableEntry.length) {
-            font.validation.addMessage('Decompression error: ' + tableEntry.tag + ' decompressed length doesn\'t match recorded length');
+            logger.addMessage('Decompression error: ' + tableEntry.tag + ' decompressed length doesn\'t match recorded length');
         }
 
         const view = new DataView(outBuffer.buffer, 0);
@@ -259,17 +257,17 @@ function parseBuffer(buffer, opt={}) {
         } else if (flavor === 'OTTO') {
             font.outlinesFormat = 'cff';
         } else {
-            font.validation.addMessage('Unsupported OpenType flavor ' + signature);
+            logger.addMessage('Unsupported OpenType flavor ' + signature);
         }
 
         numTables = parse.getUShort(data, 12);
         tableEntries = parseWOFFTableEntries(data, numTables);
     } else if (signature === 'wOF2') {
         var issue = 'https://github.com/opentypejs/opentype.js/issues/183#issuecomment-1147228025';
-        font.validation.addMessage('WOFF2 require an external decompressor library, see examples at: ' + issue);
+        logger.addMessage('WOFF2 require an external decompressor library, see examples at: ' + issue);
     } else if (signature.substring(0,2) === '%!') {
         // https://personal.math.ubc.ca/~cass/piscript/type1.pdf
-        font.validation.addMessage('PostScript/PS1/T1/Adobe Type 1 fonts are not supported');
+        logger.addMessage('PostScript/PS1/T1/Adobe Type 1 fonts are not supported');
     } else if (data.buffer.byteLength > (3 * sizeOf.Card8() + sizeOf.OffSize()) && parse.getByte(data, 0) === 0x01) {
         // this could be a CFF1 file, we will try to parse it like a CCF table below
         // https://adobe-type-tools.github.io/font-tech-notes/pdfs/5176.CFF.pdf
@@ -277,7 +275,7 @@ function parseBuffer(buffer, opt={}) {
         tableEntries.push({tag:'CFF ',offset:0});
         numTables = 1;
     } else {
-        font.validation.addMessage('Unsupported OpenType signature ' + signature);
+        logger.addMessage('Unsupported OpenType signature ' + signature);
     }
 
     let cffTableEntry;
@@ -436,7 +434,7 @@ function parseBuffer(buffer, opt={}) {
         const cffTable2 = uncompressTable(font, data, cff2TableEntry);
         cff.parse(cffTable2.data, cffTable2.offset, font, opt);
     } else {
-        font.validation.addMessage('Font doesn\'t contain TrueType, CFF or CFF2 outlines.');
+        logger.addMessage('Font doesn\'t contain TrueType, CFF or CFF2 outlines.');
     }
 
     if (hmtxTableEntry) {
@@ -446,7 +444,7 @@ function parseBuffer(buffer, opt={}) {
     
     if (!font.tables.cmap) {
         if (!font.isCFFFont) {
-            font.validation.addMessage('Font doesn\'t contain required cmap table', ErrorTypes.WARNING);
+            logger.addMessage('Font doesn\'t contain required cmap table', ErrorTypes.WARNING);
         }
     } else {
         addGlyphNames(font, opt);

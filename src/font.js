@@ -9,7 +9,7 @@ import Substitution from './substitution.js';
 import { isBrowser, checkArgument } from './util.js';
 import HintingTrueType from './hintingtt.js';
 import Bidi from './bidi.js';
-import validation from './validation.js';
+import { logger, ErrorTypes, MessageLogger } from './logger.js';
 
 function createDefaultNamesInfo(options) {
     return {
@@ -71,14 +71,6 @@ function createDefaultNamesInfo(options) {
 function Font(options) {
     options = options || {};
     options.tables = options.tables || {};
-
-    if (options.logLevel) {
-        this.validation.setLogLevel(options.logLevel);
-    }
-
-    if (options.throwLevel) {
-        this.validation.setThrowLevel(options.throwLevel);
-    }
 
     if (!options.empty) {
         // Check that we've provided the minimum set of names.
@@ -511,10 +503,10 @@ Font.prototype.getEnglishName = function(name) {
 
 /**
  * Validate
- * @type {validation.MessageStack}
+ * @type {MessageLogger}
  */
-Font.prototype.validation = new validation.MessageStack();
-Font.prototype.ErrorTypes = validation.ErrorTypes;
+Font.prototype.validation = new MessageLogger();
+Font.prototype.ErrorTypes = ErrorTypes;
 Font.prototype.validate = function() {
     const validationMessages = [];
     const _this = this;
@@ -540,8 +532,6 @@ Font.prototype.validate = function() {
 
     // Dimension information
     assert(this.unitsPerEm > 0, 'No unitsPerEm specified.');
-
-    this.validation.logMessages();
     
     return validationMessages;
 };
@@ -558,7 +548,7 @@ Font.prototype.toTables = function() {
  * @deprecated Font.toBuffer is deprecated. Use Font.toArrayBuffer instead.
  */
 Font.prototype.toBuffer = function() {
-    this.validation.addMessage('Font.toBuffer is deprecated. Use Font.toArrayBuffer instead.', this.ErrorTypes.DEPRECATED);
+    logger.addMessage('Font.toBuffer is deprecated. Use Font.toArrayBuffer instead.', this.ErrorTypes.DEPRECATED);
     return this.toArrayBuffer();
 };
 /**
@@ -601,7 +591,7 @@ Font.prototype.download = function(fileName) {
             event.initEvent('click', true, false);
             link.dispatchEvent(event);
         } else {
-            validation.addMessage('Font file could not be downloaded. Try using a different browser.');
+            logger.addMessage('Font file could not be downloaded. Try using a different browser.');
         }
     } else {
         const fs = require('fs');

@@ -59,7 +59,7 @@ function getString(dataView, offset, length) {
 // Retrieve a 4-character tag from the DataView.
 // Tags are used to identify tables.
 function getTag(dataView, offset) {
-    return getString(dataView, offset, length = 4);
+    return getString(dataView, offset, 4);
 }
 
 // Retrieve an offset from the DataView.

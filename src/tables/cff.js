@@ -11,7 +11,7 @@ import parse from '../parse.js';
 import Path from '../path.js';
 import table from '../table.js';
 import { createDefaultNamesInfo } from '../font.js';
-import validation from '../validation.js';
+import { Message, logger, ErrorTypes } from '../logger.js';
 
 // Custom equals function that can also check lists.
 function equals(a, b) {
@@ -1114,7 +1114,7 @@ function parseCFFFDSelect(data, start, font, fdArrayCount, version) {
         for (let iGid = 0; iGid < font.nGlyphs; iGid++) {
             fdIndex = parser.parseCard8();
             if (fdIndex >= fdArrayCount) {
-                parseErrors.push(new validation.Message('CFF table CID Font FDSelect has bad FD index value ' + fdIndex + ' (FD count ' + fdArrayCount + ')'));
+                parseErrors.push(new Message('CFF table CID Font FDSelect has bad FD index value ' + fdIndex + ' (FD count ' + fdArrayCount + ')'));
             }
             fdSelect.push(fdIndex);
         }
@@ -1123,17 +1123,17 @@ function parseCFFFDSelect(data, start, font, fdArrayCount, version) {
         const nRanges = format === 4 ? parser.parseULong() : parser.parseCard16();
         let first = format === 4 ? parser.parseULong() : parser.parseCard16();
         if (first !== 0) {
-            parseErrors.push(new validation.Message(`CFF Table CID Font FDSelect format ${format} range has bad initial GID ${first}`));
+            parseErrors.push(new Message(`CFF Table CID Font FDSelect format ${format} range has bad initial GID ${first}`));
         }
         let next;
         for (let iRange = 0; iRange < nRanges; iRange++) {
             fdIndex = format === 4 ? parser.parseUShort() : parser.parseCard8();
             next = format === 4 ? parser.parseULong() : parser.parseCard16();
             if (fdIndex >= fdArrayCount) {
-                parseErrors.push(new validation.Message('CFF table CID Font FDSelect has bad FD index value ' + fdIndex + ' (FD count ' + fdArrayCount + ')'));
+                parseErrors.push(new Message('CFF table CID Font FDSelect has bad FD index value ' + fdIndex + ' (FD count ' + fdArrayCount + ')'));
             }
             if (next > font.nGlyphs) {
-                parseErrors.push(new validation.Message(`CFF Table CID Font FDSelect format ${version} range has bad GID ${next}`));
+                parseErrors.push(new Message(`CFF Table CID Font FDSelect format ${version} range has bad GID ${next}`));
             }
             for (; first < next; first++) {
                 fdSelect.push(fdIndex);
@@ -1141,10 +1141,10 @@ function parseCFFFDSelect(data, start, font, fdArrayCount, version) {
             first = next;
         }
         if (next !== font.nGlyphs) {
-            parseErrors.push(new validation.Message('CFF Table CID Font FDSelect format 3 range has bad final (Sentinel) GID ' + next, validation.ErrorTypes.WARNING));
+            parseErrors.push(new Message('CFF Table CID Font FDSelect format 3 range has bad final (Sentinel) GID ' + next, ErrorTypes.WARNING));
         }
     } else {
-        parseErrors.push(new validation.Message('CFF Table CID Font FDSelect table has unsupported format ' + format));
+        parseErrors.push(new Message('CFF Table CID Font FDSelect table has unsupported format ' + format));
     }
     if (parseErrors.length) {
         fdSelect.parseErrors = parseErrors;
@@ -1183,7 +1183,7 @@ function parseCFFTable(data, start, font, opt) {
     } else {
         const topDictArray = gatherCFFTopDicts(data, start, topDictIndex.objects, stringIndex.objects, header.formatMajor);
         if (topDictArray.length !== 1) {
-            parseErrors.push(new validation.Message('CFF table has too many fonts in \'FontSet\' - count of fonts NameIndex.length = ' + topDictArray.length));
+            parseErrors.push(new Message('CFF table has too many fonts in \'FontSet\' - count of fonts NameIndex.length = ' + topDictArray.length));
         }
 
         topDict = topDictArray[0];
@@ -1216,7 +1216,7 @@ function parseCFFTable(data, start, font, opt) {
         let fdArrayIndexOffset = topDict.fdArray;
         let fdSelectOffset = topDict.fdSelect;
         if (!fdArrayIndexOffset) {
-            parseErrors.push(new validation.Message('This is a CFF2 font, but FDArray information is missing'));
+            parseErrors.push(new Message('This is a CFF2 font, but FDArray information is missing'));
         }
         const fdArrayIndex = parseCFFIndex(data, start + fdArrayIndexOffset, null, header.formatMajor);
 
@@ -1231,7 +1231,7 @@ function parseCFFTable(data, start, font, opt) {
         let fdArrayOffset = topDict.fdArray;
         let fdSelectOffset = topDict.fdSelect;
         if (fdArrayOffset === 0 || fdSelectOffset === 0) {
-            parseErrors.push(new validation.Message('Font is marked as a CID font, but FDArray and/or FDSelect information is missing'));
+            parseErrors.push(new Message('Font is marked as a CID font, but FDArray and/or FDSelect information is missing'));
         }
         fdArrayOffset += start;
         const fdArrayIndex = parseCFFIndex(data, fdArrayOffset);
@@ -1242,7 +1242,7 @@ function parseCFFTable(data, start, font, opt) {
     }
 
     if (topDict._fdSelect && topDict._fdSelect.parseErrors) {
-        font.validation.addMessages(topDict._fdSelect.parseErrors);
+        logger.addMessages(topDict._fdSelect.parseErrors);
         delete topDict._fdSelect.parseErrors;
     }
 
@@ -1264,7 +1264,7 @@ function parseCFFTable(data, start, font, opt) {
     }
 
     if ( header.formatMajor > 1 && font.tables.maxp && font.nGlyphs !== font.tables.maxp.numGlyphs ) {
-        parseErrors.push(new validation.Message(`Glyph count in the CFF2 table (${font.nGlyphs}) must correspond to the glyph count in the maxp table (${font.tables.maxp.numGlyphs})`, validation.ErrorTypes.WARNING));
+        parseErrors.push(new Message(`Glyph count in the CFF2 table (${font.nGlyphs}) must correspond to the glyph count in the maxp table (${font.tables.maxp.numGlyphs})`, ErrorTypes.WARNING));
     }
 
     if (header.formatMajor < 2) {
@@ -1302,7 +1302,7 @@ function parseCFFTable(data, start, font, opt) {
     }
 
     if (font.isCFFFont) {
-        font.validation.addMessage('CFF Type1 fonts are not fully supported, but you can use this to extract glyph outlines and metadata for example.', validation.ErrorTypes.WARNING);
+        logger.addMessage('CFF Type1 fonts are not fully supported, but you can use this to extract glyph outlines and metadata for example.', ErrorTypes.WARNING);
         const topDict = font.tables.cff.topDict;
         const psName = font.tables.cff.nameIndex && font.tables.cff.nameIndex.objects.length && font.tables.cff.nameIndex.objects[0] || '';
         const metaData = {
@@ -1323,7 +1323,7 @@ function parseCFFTable(data, start, font, opt) {
     }
 
     if (parseErrors.length) {
-        font.validation.addMessages(parseErrors);
+        logger.addMessages(parseErrors);
     }
 }
 
