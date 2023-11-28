@@ -337,9 +337,10 @@ Font.prototype.defaultRenderOptions = {
          * these 4 features are required to render Arabic text properly
          * and shouldn't be turned off when rendering arabic text.
          */
-        { script: 'arab', tags: ['init', 'medi', 'fina', 'rlig'] },
+        { script: 'arab', tags: ['init', 'medi', 'fina', 'rlig', 'mark'] },
         { script: 'latn', tags: ['liga', 'rlig'] },
-        { script: 'thai', tags: ['liga', 'rlig', 'ccmp'] },
+        { script: 'thai', tags: ['liga', 'rlig', 'ccmp', 'mark'] },
+        { script: 'ethi', tags: ['mark'] },
         { script: 'DFLT', tags: ['mark'] },
     ]
 };
