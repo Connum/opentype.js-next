@@ -202,9 +202,13 @@ Font.prototype.updateFeatures = function (options) {
     const configureable = ['DFLT', 'latn'];
     return this.defaultRenderOptions.features.map(feature => {
         if (configureable.includes(feature.script)) {
+            const scriptOptionsTags = (Array.isArray(options) ?
+                options.find(o => o.script === feature.script).tags:
+                Object.keys(options)).filter(key => options[key]);
+            const mergedTags = [...new Set([...feature.tags.filter(tag => !options || scriptOptionsTags.includes(tag)), ...feature.tags])];
             return {
                 script: feature.script,
-                tags: feature.tags.filter(tag => !options || options[tag])
+                tags: mergedTags
             };
         }
         return feature;
@@ -212,7 +216,7 @@ Font.prototype.updateFeatures = function (options) {
 };
 
 Font.prototype.getFeaturesConfig = function (options) {
-    return options ?
+    return options && options.features && options.features !== this.defaultRenderOptions.features ?
         this.updateFeatures(options.features) :
         this.defaultRenderOptions.features;
 };
@@ -340,7 +344,6 @@ Font.prototype.defaultRenderOptions = {
         { script: 'arab', tags: ['init', 'medi', 'fina', 'rlig', 'mark'] },
         { script: 'latn', tags: ['liga', 'rlig'] },
         { script: 'thai', tags: ['liga', 'rlig', 'ccmp', 'mark'] },
-        { script: 'ethi', tags: ['mark'] },
         { script: 'DFLT', tags: ['mark'] },
     ]
 };
