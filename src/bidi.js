@@ -10,7 +10,7 @@ import arabicSentenceCheck from './features/arab/contextCheck/arabicSentence.js'
 import arabicPresentationForms from './features/arab/arabicPresentationForms.js';
 import arabicRequiredLigatures from './features/arab/arabicRequiredLigatures.js';
 import latinWordCheck from './features/latn/contextCheck/latinWord.js';
-import latinLigature from './features/latn/latinLigatures.js';
+import { latinRequiredLigature, latinLigature } from './features/latn/latinLigatures.js';
 import thaiWordCheck from './features/thai/contextCheck/thaiWord.js';
 import unicodeVariationSequenceCheck from './features/unicode/contextCheck/variationSequenceCheck.js';
 import unicodeVariationSequences from './features/unicode/variationSequences.js';
@@ -281,15 +281,26 @@ function applyArabicRequireLigatures() {
 }
 
 /**
- * Apply required arabic ligatures
+ * Apply required and normal latin ligatures
  */
 function applyLatinLigatures() {
-    if (!this.hasFeatureEnabled('latn', 'liga')) return;
+    const script = 'latn';
+    if (!Object.prototype.hasOwnProperty.call(this.featuresTags, script)) return;
+    const tags = this.featuresTags[script];
+    if ((tags.indexOf('rlig') === -1) && (tags.indexOf('liga') === -1)) return;
     checkGlyphIndexStatus.call(this);
     const ranges = this.tokenizer.getContextRanges('latinWord');
+
     for(let i = 0; i < ranges.length; i++) {
         const range = ranges[i];
-        latinLigature.call(this, range);
+
+        if (tags.indexOf('rlig') >= 0) {
+            latinRequiredLigature.call(this, range);
+        }
+
+        if (tags.indexOf('liga') >= 0) {
+            latinLigature.call(this, range);
+        }
     }
 }
 
