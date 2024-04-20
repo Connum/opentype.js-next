@@ -118,7 +118,7 @@ jobs:
 
     - name: Upload build artifact
       if: ${{ env.PUSH_TO_MAIN == 'false' }}
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: unicode-text-rendering-report_${{ env.SHORT_COMMIT_SHA }}
         path: ${{ env.REPORT_FILE }}
