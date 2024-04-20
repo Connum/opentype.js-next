@@ -3,6 +3,7 @@ import { Font, Glyph, Path, parse } from '../src/opentype.js';
 import glyphset from '../src/glyphset.js';
 import { readFileSync } from 'fs';
 import util from './testutil.js';
+import Font from '../src/font.js';
 const loadSync = (url, opt) => parse(readFileSync(url), opt);
 
 describe('font.js', function() {
@@ -158,24 +159,14 @@ describe('font.js', function() {
     describe('getFeaturesConfig', () => {
         it('returns default rendering config if options are ommited', () => {
             const configResult = font.getFeaturesConfig();
-            assert.deepStrictEqual(configResult, [
-                { script: 'arab', tags: ['init', 'medi', 'fina', 'rlig'] },
-                { script: 'latn', tags: ['liga', 'rlig'] },
-                { script: 'thai', tags: ['liga', 'rlig', 'ccmp'] },
-                { script: 'DFLT', tags: ['mark'] },
-            ]);
+            assert.deepStrictEqual(configResult, Font.prototype.defaultRenderOptions.features);
         });
 
         it('returns default rendering config if features attribute is ommited', () => {
             const configResult = font.getFeaturesConfig({
                 // features: {} // ommited
             });
-            assert.deepStrictEqual(configResult, [
-                { script: 'arab', tags: ['init', 'medi', 'fina', 'rlig'] },
-                { script: 'latn', tags: ['liga', 'rlig'] },
-                { script: 'thai', tags: ['liga', 'rlig', 'ccmp'] },
-                { script: 'DFLT', tags: ['mark'] },
-            ]);
+            assert.deepStrictEqual(configResult, Font.prototype.defaultRenderOptions.features);
         });
 
         it('allows to update features for supported scripts (DFLT, latn)', () => {

@@ -216,17 +216,23 @@ Font.prototype.charToGlyph = function(c) {
  * @param {any} options features options
  */
 Font.prototype.updateFeatures = function (options) {
-    // TODO: update all features options not only 'latn'.
+    // TODO: update all features options not only 'DFLT', 'latn'.
+    const configureable = ['DFLT', 'latn'];
     return this.defaultRenderOptions.features.map(feature => {
-        if (feature.script === 'latn') {
+        if (configureable.includes(feature.script)) {
             return {
-                script: 'latn',
-                tags: feature.tags.filter(tag => options[tag])
+                script: feature.script,
+                tags: feature.tags.filter(tag => !options || options[tag])
             };
-        } else {
-            return feature;
         }
+        return feature;
     });
+};
+
+Font.prototype.getFeaturesConfig = function (options) {
+    return options ?
+        this.updateFeatures(options.features) :
+        this.defaultRenderOptions.features;
 };
 
 Font.prototype.getFeaturesConfig = function (options) {
