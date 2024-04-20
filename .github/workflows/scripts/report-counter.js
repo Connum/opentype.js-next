@@ -4,6 +4,9 @@ const { JSDOM } = jsdom;
 JSDOM.fromFile(process.env.REPORT_FILE).then(dom => {
   const document = dom.window.document;
 
+  console.log(process.env.REPORT_FILE);
+  console.log(dom.serialze());
+
   function prevUntil(element, selector) {
     const elements = [];
     while(element.previousElementSibling && !element.previousElementSibling.matches(selector)) {
