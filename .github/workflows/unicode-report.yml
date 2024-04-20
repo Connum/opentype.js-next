@@ -61,6 +61,7 @@ jobs:
         SHORT_COMMIT_SHA=$(echo "${{ env.COMMIT_SHA }}" | cut -c 1-7)
         echo "SHORT_COMMIT_SHA=$SHORT_COMMIT_SHA" >> $GITHUB_ENV
         echo "REPORT_FILE=${{ env.REPORT_DIR }}/${{ env.COMMIT_SHA }}.html" >> $GITHUB_ENV
+        echo "REPORT_FILE: ${{ env.REPORT_FILE }}"
 
     - name: Setup node
       uses: actions/setup-node@v4
@@ -80,9 +81,9 @@ jobs:
       run: mkdir -p ${{ env.REPORT_DIR }}
 
     # for speeding up the workflow when debugging this action
-    # - name: Delete HTML files in testcases directory
-    #   run: |
-    #     find text-rendering-tests/testcases -name '*.html' -not -name 'index.html' -not -name 'GPOS-*.html' -delete
+    - name: Delete HTML files in testcases directory
+      run: |
+        find text-rendering-tests/testcases -name '*.html' -not -name 'index.html' -not -name 'GPOS-*.html' -delete
     
     - name: build files and copy to text script
       run: |
