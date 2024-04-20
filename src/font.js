@@ -14,6 +14,7 @@ import { isBrowser, checkArgument } from './util.js';
 import HintingTrueType from './hintingtt.js';
 import Bidi from './bidi.js';
 import { applyPaintType } from './tables/cff.js';
+import { kern, mark } from './features/positioning/index.js';
 
 function createDefaultNamesInfo(options) {
     return {
@@ -228,6 +229,12 @@ Font.prototype.updateFeatures = function (options) {
     });
 };
 
+Font.prototype.getFeaturesConfig = function (options) {
+    return options ?
+        this.updateFeatures(options.features) :
+        this.defaultRenderOptions.features;
+};
+
 /**
  * Convert the given text to a list of Glyph indexes.
  * Note that there is no strict one-to-one mapping between characters and
@@ -244,11 +251,7 @@ Font.prototype.stringToGlyphIndexes = function(s, options) {
     const charToGlyphIndexMod = token => this.charToGlyphIndex(token.char);
     bidi.registerModifier('glyphIndex', null, charToGlyphIndexMod);
 
-    // roll-back to default features
-    let features = options ?
-        this.updateFeatures(options.features) :
-        this.defaultRenderOptions.features;
-
+    const features = this.getFeaturesConfig(options);
     bidi.applyFeatures(this, features);
 
     return bidi.getTextGlyphs(s);
@@ -357,8 +360,9 @@ Font.prototype.defaultRenderOptions = {
          * and shouldn't be turned off when rendering arabic text.
          */
         { script: 'arab', tags: ['init', 'medi', 'fina', 'rlig'] },
-        { script: 'latn', tags: ['liga', 'rlig'] },
+        { script: 'latn', tags: ['liga', 'rlig', 'ccmp'] },
         { script: 'thai', tags: ['liga', 'rlig', 'ccmp'] },
+        { script: 'DFLT', tags: ['mark', 'ccmp'] },
     ],
     hinting: false,
     usePalette: 0,
@@ -383,25 +387,16 @@ Font.prototype.forEachGlyph = function(text, x, y, fontSize, options, callback) 
     options = Object.assign({}, this.defaultRenderOptions, options);
     const fontScale = 1 / this.unitsPerEm * fontSize;
     const glyphs = this.stringToGlyphs(text, options);
-    let kerningLookups;
-    if (options.kerning) {
-        const script = options.script || this.position.getDefaultScriptName();
-        kerningLookups = this.position.getKerningTables(script, options.language);
-    }
+    const glyphsPositions = this.getGlyphsPositions(glyphs, options);
+
     for (let i = 0; i < glyphs.length; i += 1) {
         const glyph = glyphs[i];
-        callback.call(this, glyph, x, y, fontSize, options);
+        const { xAdvance, yAdvance } = glyphsPositions[i];
+
+        callback.call(this, glyph, x + (xAdvance * fontScale), y + (yAdvance * fontScale), fontSize, options);
+
         if (glyph.advanceWidth) {
             x += glyph.advanceWidth * fontScale;
-        }
-
-        if (options.kerning && i < glyphs.length - 1) {
-            // We should apply position adjustment lookups in a more generic way.
-            // Here we only use the xAdvance value.
-            const kerningValue = kerningLookups ?
-                this.position.getKerningValue(kerningLookups, glyph.index, glyphs[i + 1].index) :
-                this.getKerningValue(glyph, glyphs[i + 1]);
-            x += kerningValue * fontScale;
         }
 
         if (options.letterSpacing) {
@@ -411,6 +406,73 @@ Font.prototype.forEachGlyph = function(text, x, y, fontSize, options, callback) 
         }
     }
     return x;
+};
+
+/**
+ * Returns array of glyphs' relative position advances for a given sequence.
+ *
+ * Supported features:
+ * - kern - kerning
+ * - mark - mark to base attachments
+ *
+ * @param {opentype.Glyph[]} glyphs
+ * @returns {Object[]} array of { xAdvance: number, yAdvance: number } for a glyph ordered by their index
+ */
+Font.prototype.getGlyphsPositions = function(glyphs, options) {
+
+    const script = options.script || this.position.getDefaultScriptName();
+
+    const features = this
+        .getFeaturesConfig(options)
+        .filter(f => f.script === 'DFLT')
+        .reduce((tags, feature) => tags.concat(feature.tags), []);
+
+    // Force a kern feature
+    if (options && options.kerning) features.push('kern');
+
+    const glyphsPositions = [];
+    for (let i = 0; i < glyphs.length; i += 1) {
+        glyphsPositions[i] = { xAdvance: 0, yAdvance: 0 };
+    }
+
+    let kernLookupTableProcessed = false;
+    const featuresLookups = this.position.getPositionFeatures(features, script, options.language);
+    for (let i = 0; i < featuresLookups.length; i++) {
+        const lookupTable = featuresLookups[i];
+        let kerningValue = 0;
+        let pos = [];
+        switch (lookupTable.feature) {
+            case 'kern':
+                pos = kern.call(this, lookupTable, glyphs);
+                kernLookupTableProcessed = true;
+                break;
+            case 'mark':
+                pos = mark.call(this, lookupTable, glyphs);
+                break;
+        }
+
+        // Reposition glyphs
+        for (let index = 0; index < pos.length; index++) {
+            const glyphPosition = pos[index];
+            if (lookupTable.feature === 'kern') { 
+                kerningValue += glyphPosition.xAdvance; // kerning apply to entire sequence
+                glyphsPositions[index].xAdvance += kerningValue;
+            } else {
+                glyphsPositions[index].xAdvance += glyphPosition.xAdvance;
+                glyphsPositions[index].yAdvance += glyphPosition.yAdvance;
+            }
+        }
+    }
+
+    // Support for the 'kern' table glyph pairs
+    if (options.kerning && kernLookupTableProcessed === false) {
+        let kerningValue = 0;
+        for (let i = 1; i < glyphs.length; i += 1) {
+            kerningValue += this.getKerningValue(glyphs[i - 1], glyphs[i]); // kerning apply to entire sequence
+            glyphsPositions[i].xAdvance += kerningValue; 
+        }
+    }
+    return glyphsPositions;
 };
 
 /**
