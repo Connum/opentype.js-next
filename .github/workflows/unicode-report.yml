@@ -81,9 +81,9 @@ jobs:
       run: mkdir -p ${{ env.REPORT_DIR }}
 
     # for speeding up the workflow when debugging this action
-    - name: Delete HTML files in testcases directory
-      run: |
-        find text-rendering-tests/testcases -name '*.html' -not -name 'index.html' -not -name 'GPOS-*.html' -delete
+    # - name: Delete HTML files in testcases directory
+    #   run: |
+    #     find text-rendering-tests/testcases -name '*.html' -not -name 'index.html' -not -name 'GPOS-*.html' -delete
     
     - name: build files and copy to text script
       run: |
