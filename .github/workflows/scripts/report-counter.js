@@ -5,7 +5,7 @@ const jsDoc = JSDOM.fromFile(process.env.REPORT_FILE).then(dom => {
   const document = dom.window.document;
 
   console.log(process.env.REPORT_FILE);
-  console.log(jsDoc.serialze());
+  console.log(jsDoc.serialize());
 
   function prevUntil(element, selector) {
     const elements = [];
