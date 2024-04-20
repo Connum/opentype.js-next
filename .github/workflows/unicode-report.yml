@@ -108,6 +108,7 @@ jobs:
         sed -i -E "s@href=\"\.\./fonts/@href=\"https://rawgit.com/unicode-org/text-rendering-tests/master/fonts/@" ${{ env.REPORT_FILE }}
 
     - name: parse passing/failing tests
+      if: ${{ env.PUSH_TO_MAIN == 'false' && env.MANUAL_DISPATCH == 'false' }}
       run:  |
           EOF=$(dd if=/dev/urandom bs=15 count=1 status=none | base64)
           REPORT_SUMMARY=$(node .github/workflows/scripts/report-counter.js)
