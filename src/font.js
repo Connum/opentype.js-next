@@ -6,11 +6,14 @@ import { DefaultEncoding } from './encoding.js';
 import glyphset from './glyphset.js';
 import Position from './position.js';
 import Substitution from './substitution.js';
+import { PaletteManager } from './palettes.js';
+import { LayerManager } from './layers.js';
+import { SVGImageManager } from './svgimages.js';
+import { VariationManager } from './variation.js';
 import { isBrowser, checkArgument } from './util.js';
 import HintingTrueType from './hintingtt.js';
 import Bidi from './bidi.js';
 import { applyPaintType } from './tables/cff.js';
-import { kern, mark } from './features/positioning/index.js';
 
 function createDefaultNamesInfo(options) {
     return {
@@ -140,6 +143,20 @@ function Font(options) {
     this.substitution = new Substitution(this);
     this.tables = this.tables || {};
 
+    this.tables = new Proxy(this.tables, {
+        set: (tables, tableName, tableData) => {
+            tables[tableName] = tableData;
+            if (tables.fvar && (tables.gvar || tables.cff2) && !this.variation) {
+                this.variation = new VariationManager(this);
+            }
+            return true;
+        }
+    });
+
+    this.palettes = new PaletteManager(this);
+    this.layers = new LayerManager(this);
+    this.svgImages = new SVGImageManager(this);
+
     // needed for low memory mode only.
     this._push = null;
     this._hmtxTableData = {};
@@ -198,23 +215,17 @@ Font.prototype.charToGlyph = function(c) {
  * @param {any} options features options
  */
 Font.prototype.updateFeatures = function (options) {
-    // TODO: update all features options not only 'DFLT', 'latn'.
-    const configureable = ['DFLT', 'latn'];
+    // TODO: update all features options not only 'latn'.
     return this.defaultRenderOptions.features.map(feature => {
-        if (configureable.includes(feature.script)) {
+        if (feature.script === 'latn') {
             return {
-                script: feature.script,
-                tags: feature.tags.filter(tag => !options || options[tag])
+                script: 'latn',
+                tags: feature.tags.filter(tag => options[tag])
             };
+        } else {
+            return feature;
         }
-        return feature;
     });
-};
-
-Font.prototype.getFeaturesConfig = function (options) {
-    return options ?
-        this.updateFeatures(options.features) :
-        this.defaultRenderOptions.features;
 };
 
 /**
@@ -233,7 +244,11 @@ Font.prototype.stringToGlyphIndexes = function(s, options) {
     const charToGlyphIndexMod = token => this.charToGlyphIndex(token.char);
     bidi.registerModifier('glyphIndex', null, charToGlyphIndexMod);
 
-    const features = this.getFeaturesConfig(options);
+    // roll-back to default features
+    let features = options ?
+        this.updateFeatures(options.features) :
+        this.defaultRenderOptions.features;
+
     bidi.applyFeatures(this, features);
 
     return bidi.getTextGlyphs(s);
@@ -329,6 +344,10 @@ Font.prototype.getKerningValue = function(leftGlyph, rightGlyph) {
  * @property {boolean} [kerning=true] - whether to include kerning values
  * @property {object} [features] - OpenType Layout feature tags. Used to enable or disable the features of the given script/language system.
  *                                 See https://www.microsoft.com/typography/otspec/featuretags.htm
+ * @property {boolean} [hinting=false] - whether to apply font hinting to the outlines
+ * @property {integer} [usePalette=0] For COLR/CPAL fonts, the zero-based index of the color palette to use. (Use `Font.palettes.get()` to get the available palettes)
+ * @property {boolean} [drawLayers=true] For COLR/CPAL fonts, this can be turned to false in order to draw the fallback glyphs instead
+ * @property {boolean} [drawSVG=true] For SVG fonts, this can be turned to false in order to draw the fallback glyphs instead
  */
 Font.prototype.defaultRenderOptions = {
     kerning: true,
@@ -340,8 +359,11 @@ Font.prototype.defaultRenderOptions = {
         { script: 'arab', tags: ['init', 'medi', 'fina', 'rlig'] },
         { script: 'latn', tags: ['liga', 'rlig'] },
         { script: 'thai', tags: ['liga', 'rlig', 'ccmp'] },
-        { script: 'DFLT', tags: ['mark'] },
-    ]
+    ],
+    hinting: false,
+    usePalette: 0,
+    drawLayers: true,
+    drawSVG: true,
 };
 
 /**
@@ -361,16 +383,25 @@ Font.prototype.forEachGlyph = function(text, x, y, fontSize, options, callback) 
     options = Object.assign({}, this.defaultRenderOptions, options);
     const fontScale = 1 / this.unitsPerEm * fontSize;
     const glyphs = this.stringToGlyphs(text, options);
-    const glyphsPositions = this.getGlyphsPositions(glyphs, options);
-
+    let kerningLookups;
+    if (options.kerning) {
+        const script = options.script || this.position.getDefaultScriptName();
+        kerningLookups = this.position.getKerningTables(script, options.language);
+    }
     for (let i = 0; i < glyphs.length; i += 1) {
         const glyph = glyphs[i];
-        const { xAdvance, yAdvance } = glyphsPositions[i];
-
-        callback.call(this, glyph, x + (xAdvance * fontScale), y + (yAdvance * fontScale), fontSize, options);
-
+        callback.call(this, glyph, x, y, fontSize, options);
         if (glyph.advanceWidth) {
             x += glyph.advanceWidth * fontScale;
+        }
+
+        if (options.kerning && i < glyphs.length - 1) {
+            // We should apply position adjustment lookups in a more generic way.
+            // Here we only use the xAdvance value.
+            const kerningValue = kerningLookups ?
+                this.position.getKerningValue(kerningLookups, glyph.index, glyphs[i + 1].index) :
+                this.getKerningValue(glyph, glyphs[i + 1]);
+            x += kerningValue * fontScale;
         }
 
         if (options.letterSpacing) {
@@ -383,73 +414,6 @@ Font.prototype.forEachGlyph = function(text, x, y, fontSize, options, callback) 
 };
 
 /**
- * Returns array of glyphs' relative position advances for a given sequence.
- *
- * Supported features:
- * - kern - kerning
- * - mark - mark to base attachments
- *
- * @param {opentype.Glyph[]} glyphs
- * @returns {Object[]} array of { xAdvance: number, yAdvance: number } for a glyph ordered by their index
- */
-Font.prototype.getGlyphsPositions = function(glyphs, options) {
-
-    const script = options.script || this.position.getDefaultScriptName();
-
-    const features = this
-        .getFeaturesConfig(options)
-        .filter(f => f.script === 'DFLT')
-        .reduce((tags, feature) => tags.concat(feature.tags), []);
-
-    // Force a kern feature
-    if (options && options.kerning) features.push('kern');
-
-    const glyphsPositions = [];
-    for (let i = 0; i < glyphs.length; i += 1) {
-        glyphsPositions[i] = { xAdvance: 0, yAdvance: 0 };
-    }
-
-    let kernLookupTableProcessed = false;
-    const featuresLookups = this.position.getPositionFeatures(features, script, options.language);
-    for (let i = 0; i < featuresLookups.length; i++) {
-        const lookupTable = featuresLookups[i];
-        let kerningValue = 0;
-        let pos = [];
-        switch (lookupTable.feature) {
-            case 'kern':
-                pos = kern.call(this, lookupTable, glyphs);
-                kernLookupTableProcessed = true;
-                break;
-            case 'mark':
-                pos = mark.call(this, lookupTable, glyphs);
-                break;
-        }
-
-        // Reposition glyphs
-        for (let index = 0; index < pos.length; index++) {
-            const glyphPosition = pos[index];
-            if (lookupTable.feature === 'kern') { 
-                kerningValue += glyphPosition.xAdvance; // kerning apply to entire sequence
-                glyphsPositions[index].xAdvance += kerningValue;
-            } else {
-                glyphsPositions[index].xAdvance += glyphPosition.xAdvance;
-                glyphsPositions[index].yAdvance += glyphPosition.yAdvance;
-            }
-        }
-    }
-
-    // Support for the 'kern' table glyph pairs
-    if (options.kerning && kernLookupTableProcessed === false) {
-        let kerningValue = 0;
-        for (let i = 1; i < glyphs.length; i += 1) {
-            kerningValue += this.getKerningValue(glyphs[i - 1], glyphs[i]); // kerning apply to entire sequence
-            glyphsPositions[i].xAdvance += kerningValue; 
-        }
-    }
-    return glyphsPositions;
-};
-
-/**
  * Create a Path object that represents the given text.
  * @param  {string} text - The text to create.
  * @param  {number} [x=0] - Horizontal position of the beginning of the text.
@@ -459,14 +423,26 @@ Font.prototype.getGlyphsPositions = function(glyphs, options) {
  * @return {opentype.Path}
  */
 Font.prototype.getPath = function(text, x, y, fontSize, options) {
+    options = Object.assign({}, this.defaultRenderOptions, options);
     const fullPath = new Path();
+    fullPath._layers = [];
     applyPaintType(this, fullPath, fontSize);
     if (fullPath.stroke) {
         const scale = 1 / (fullPath.unitsPerEm || 1000) * fontSize;
         fullPath.strokeWidth *= scale;
     }
-    this.forEachGlyph(text, x, y, fontSize, options, function(glyph, gX, gY, gFontSize) {
+    this.forEachGlyph(text, x, y, fontSize, options, (glyph, gX, gY, gFontSize) => {
         const glyphPath = glyph.getPath(gX, gY, gFontSize, options, this);
+        if ( options.drawSVG || options.drawLayers ) {
+            const layers = glyphPath._layers;
+            if ( layers && layers.length ) {
+                for(let l = 0; l < layers.length; l++) {
+                    const layer = layers[l];
+                    fullPath._layers.push(layer);
+                }
+                return;
+            }
+        }
         fullPath.extend(glyphPath);
     });
     return fullPath;
@@ -482,6 +458,7 @@ Font.prototype.getPath = function(text, x, y, fontSize, options) {
  * @return {opentype.Path[]}
  */
 Font.prototype.getPaths = function(text, x, y, fontSize, options) {
+    options = Object.assign({}, this.defaultRenderOptions, options);
     const glyphPaths = [];
     this.forEachGlyph(text, x, y, fontSize, options, function(glyph, gX, gY, gFontSize) {
         const glyphPath = glyph.getPath(gX, gY, gFontSize, options, this);
@@ -507,6 +484,7 @@ Font.prototype.getPaths = function(text, x, y, fontSize, options) {
  * @return advance width
  */
 Font.prototype.getAdvanceWidth = function(text, fontSize, options) {
+    options = Object.assign({}, this.defaultRenderOptions, options);
     return this.forEachGlyph(text, 0, 0, fontSize, options, function() {});
 };
 
@@ -520,7 +498,8 @@ Font.prototype.getAdvanceWidth = function(text, fontSize, options) {
  * @param  {GlyphRenderOptions=} options
  */
 Font.prototype.draw = function(ctx, text, x, y, fontSize, options) {
-    this.getPath(text, x, y, fontSize, options).draw(ctx);
+    const path = this.getPath(text, x, y, fontSize, options);
+    path.draw(ctx);
 };
 
 /**
@@ -534,8 +513,9 @@ Font.prototype.draw = function(ctx, text, x, y, fontSize, options) {
  * @param {GlyphRenderOptions=} options
  */
 Font.prototype.drawPoints = function(ctx, text, x, y, fontSize, options) {
+    options = Object.assign({}, this.defaultRenderOptions, options);
     this.forEachGlyph(text, x, y, fontSize, options, function(glyph, gX, gY, gFontSize) {
-        glyph.drawPoints(ctx, gX, gY, gFontSize);
+        glyph.drawPoints(ctx, gX, gY, gFontSize, options, this);
     });
 };
 
@@ -552,6 +532,7 @@ Font.prototype.drawPoints = function(ctx, text, x, y, fontSize, options) {
  * @param {GlyphRenderOptions=} options
  */
 Font.prototype.drawMetrics = function(ctx, text, x, y, fontSize, options) {
+    options = Object.assign({}, this.defaultRenderOptions, options);
     this.forEachGlyph(text, x, y, fontSize, options, function(glyph, gX, gY, gFontSize) {
         glyph.drawMetrics(ctx, gX, gY, gFontSize);
     });
@@ -577,6 +558,7 @@ Font.prototype.validate = function() {
 
     function assert(predicate, message) {
         if (!predicate) {
+            console.warn(`[opentype.js] ${message}`);
             warnings.push(message);
         }
     }
@@ -596,6 +578,21 @@ Font.prototype.validate = function() {
 
     // Dimension information
     assert(this.unitsPerEm > 0, 'No unitsPerEm specified.');
+
+    if (this.tables.colr) {
+        const baseGlyphs = this.tables.colr.baseGlyphRecords;
+        let previousID = -1;
+        for(let b = 0; b < baseGlyphs.length; b++) {
+            const currentGlyphID = baseGlyphs[b].glyphID;
+            assert(previousID < baseGlyphs[b].glyphID, `baseGlyphs must be sorted by GlyphID in ascending order, but glyphID ${currentGlyphID} comes after ${previousID}`);
+            if (previousID > baseGlyphs[b].glyphID) {
+                break;
+            }
+            previousID = currentGlyphID;
+        }
+    }
+
+    return warnings;
 };
 
 /**

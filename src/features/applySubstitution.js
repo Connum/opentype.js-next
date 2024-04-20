@@ -1,5 +1,4 @@
 import { SubstitutionAction } from './featureQuery.js';
-import { Token } from '../tokenizer.js';
 
 /**
  * Apply single substitution format 1
@@ -31,6 +30,15 @@ function chainingSubstitutionFormat3(action, tokens, index) {
     for(let i = 0; i < action.substitution.length; i++) {
         const subst = action.substitution[i];
         const token = tokens[index + i];
+        if (Array.isArray(subst)) {
+            if (subst.length){
+                // TODO: replace one glyph with multiple glyphs
+                token.setState(action.tag, subst[0]);
+            } else {
+                token.setState('deleted', true);
+            }
+            continue;
+        }
         token.setState(action.tag, subst);
     }
 }
@@ -52,39 +60,15 @@ function ligatureSubstitutionFormat1(action, tokens, index) {
 }
 
 /**
- * Apply multiple substitution format 1
- * @param {Array} substitutions substitutions
- * @param {any} tokens a list of tokens
- * @param {number} index token index
- */
-function multiSubstitutionFormat1(action, tokens, index) {
-    if (this.font && this.tokenizer) {
-        const newTokensList = [];
-        const substitution = action.substitution;
-        for (let i = 0; i < substitution.length; i++) {
-            const substitutionGlyphIndex = substitution[i];
-            const glyph = this.font.glyphs.get(substitutionGlyphIndex);
-            const token = new Token(String.fromCharCode(parseInt(glyph.unicode)));
-            token.setState('glyphIndex', substitutionGlyphIndex);
-            newTokensList.push(token);
-        }
-
-        // Replace single range (glyph) index with multiple glyphs
-        if (newTokensList.length) {
-            this.tokenizer.replaceRange(index, 1, newTokensList);
-        }
-    }
-}
-
-/**
  * Supported substitutions
  */
 const SUBSTITUTIONS = {
     11: singleSubstitutionFormat1,
     12: singleSubstitutionFormat2,
     63: chainingSubstitutionFormat3,
-    41: ligatureSubstitutionFormat1, 
-    21: multiSubstitutionFormat1
+    41: ligatureSubstitutionFormat1,
+    51: chainingSubstitutionFormat3,
+    53: chainingSubstitutionFormat3
 };
 
 /**
@@ -95,7 +79,7 @@ const SUBSTITUTIONS = {
  */
 function applySubstitution(action, tokens, index) {
     if (action instanceof SubstitutionAction && SUBSTITUTIONS[action.id]) {
-        SUBSTITUTIONS[action.id].call(this, action, tokens, index);
+        SUBSTITUTIONS[action.id](action, tokens, index);
     }
 }
 
